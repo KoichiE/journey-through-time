@@ -1,7 +1,7 @@
 
-/* =================================
-   HISTORY QUEST - GAME STYLES
-================================= */
+/* =====================================
+   HISTORY QUEST - COMPLETE STYLES
+===================================== */
 
 :root {
     --background: #10182b;
@@ -26,15 +26,13 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    overflow-x: hidden;
+    padding: 15px;
 }
 
 #game-container {
     width: 100%;
     max-width: 1100px;
     min-height: 700px;
-    padding: 25px;
-    position: relative;
 }
 
 .screen {
@@ -53,20 +51,11 @@ body {
     align-items: center;
     justify-content: space-between;
     text-align: center;
-    background:
-        linear-gradient(rgba(16,24,43,0.65), rgba(16,24,43,0.9)),
-        repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 39px,
-            rgba(255,255,255,0.025) 40px
-        );
+    background: #151f35;
     border: 3px solid #354662;
     padding: 55px 20px 25px;
     box-shadow: 0 0 35px rgba(0,0,0,0.4);
 }
-
-/* LOGO */
 
 .logo {
     margin-top: 20px;
@@ -93,8 +82,6 @@ body {
     margin-top: 15px;
 }
 
-/* MENU CONTENT */
-
 .menu-content {
     width: 100%;
     max-width: 450px;
@@ -117,11 +104,11 @@ body {
 
 .game-button {
     font-family: 'Press Start 2P', monospace;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--background);
     background: var(--primary);
     border: none;
-    padding: 20px;
+    padding: 17px;
     cursor: pointer;
     transition: 0.2s ease;
     box-shadow: 0 5px #a77d2d;
@@ -130,20 +117,16 @@ body {
 .game-button:hover {
     background: #ffda78;
     transform: translateY(-3px);
-    box-shadow: 0 8px #a77d2d;
 }
 
 .game-button:active {
     transform: translateY(2px);
-    box-shadow: 0 2px #a77d2d;
 }
 
 .game-button:focus-visible {
     outline: 3px solid white;
     outline-offset: 5px;
 }
-
-/* FOOTER */
 
 footer {
     color: var(--muted);
@@ -159,19 +142,18 @@ footer {
     align-items: center;
     justify-content: center;
     text-align: center;
-    gap: 35px;
-    padding: 45px 25px;
+    gap: 25px;
+    padding: 35px 20px;
     background: var(--panel);
     border: 3px solid #354662;
-    box-shadow: 0 0 35px rgba(0,0,0,0.4);
 }
 
 .page-header h2 {
     font-family: 'Press Start 2P', monospace;
     color: var(--primary);
-    font-size: clamp(17px, 3vw, 25px);
+    font-size: clamp(15px, 3vw, 24px);
     line-height: 1.8;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
 }
 
 .page-header p {
@@ -214,7 +196,7 @@ footer {
 .world-card h3 {
     color: var(--primary);
     font-family: 'Press Start 2P', monospace;
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.8;
     margin-bottom: 15px;
 }
@@ -224,31 +206,145 @@ footer {
     color: var(--muted);
 }
 
-/* GAME PLACEHOLDER */
+/* GAME HEADER */
 
-.game-placeholder {
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
     width: 100%;
-    max-width: 650px;
-    background: #263954;
-    border: 3px dashed #536c8e;
-    padding: 60px 20px;
+    text-align: left;
 }
 
-.placeholder-icon {
-    font-size: 65px;
-}
-
-.game-placeholder h3 {
+.game-header h2 {
+    color: var(--primary);
     font-family: 'Press Start 2P', monospace;
-    color: var(--secondary);
     font-size: 13px;
     line-height: 1.8;
-    margin: 25px 0 15px;
 }
 
-.game-placeholder p {
-    font-size: 22px;
+.game-header p {
     color: var(--muted);
+    font-size: 20px;
+}
+
+.player-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 22px;
+    white-space: nowrap;
+}
+
+.game-instructions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    color: var(--secondary);
+    font-size: 19px;
+}
+
+/* GAME CANVAS */
+
+.canvas-wrapper {
+    width: 100%;
+    border: 4px solid #536c8e;
+    background: #75b96a;
+    overflow: hidden;
+    line-height: 0;
+}
+
+#game-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    image-rendering: pixelated;
+}
+
+.game-message {
+    width: 100%;
+    padding: 12px;
+    background: #263954;
+    color: var(--secondary);
+    font-size: 21px;
+}
+
+.game-controls {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+/* DIALOGUE AND QUIZ */
+
+.dialogue-box {
+    width: 100%;
+    max-width: 600px;
+    background: #10182b;
+    border: 3px solid var(--primary);
+    padding: 25px;
+    text-align: center;
+    box-shadow: 0 0 25px rgba(0,0,0,0.5);
+}
+
+.dialogue-box h3 {
+    font-family: 'Press Start 2P', monospace;
+    color: var(--primary);
+    font-size: 12px;
+    line-height: 1.8;
+    margin-bottom: 20px;
+}
+
+.dialogue-box p {
+    font-size: 23px;
+    line-height: 1.4;
+    margin-bottom: 20px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.quiz-options {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.quiz-option {
+    background: #263954;
+    border: 2px solid #536c8e;
+    color: white;
+    padding: 13px;
+    font-family: 'VT323', monospace;
+    font-size: 21px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.quiz-option:hover {
+    border-color: var(--primary);
+    background: #304767;
+}
+
+.quiz-option:disabled {
+    cursor: default;
+    opacity: 0.8;
+}
+
+#quiz-feedback {
+    font-weight: bold;
+}
+
+.feedback-correct {
+    color: #65d89b;
+}
+
+.feedback-wrong {
+    color: #ff8585;
 }
 
 /* SETTINGS */
@@ -268,16 +364,11 @@ footer {
     font-size: 24px;
 }
 
-.setting-item .game-button {
-    font-size: 10px;
-}
-
 /* RESPONSIVE */
 
 @media (max-width: 600px) {
-
     #game-container {
-        padding: 12px;
+        padding: 5px;
     }
 
     #welcome-screen {
@@ -293,25 +384,27 @@ footer {
         letter-spacing: 2px;
     }
 
-    .welcome-message {
-        font-size: 20px;
-    }
-
-    .game-button {
-        font-size: 10px;
-        padding: 18px 10px;
-    }
-
     .world-options {
         grid-template-columns: 1fr;
     }
 
-    .world-card {
-        padding: 25px 15px;
+    .game-header {
+        flex-direction: column;
+        text-align: center;
     }
 
-    .page-header h2 {
-        font-size: 15px;
+    .game-header h2 {
+        font-size: 11px;
+    }
+
+    .game-instructions {
+        font-size: 16px;
+        gap: 10px;
+    }
+
+    .game-button {
+        font-size: 9px;
+        padding: 14px;
     }
 
     .setting-item {

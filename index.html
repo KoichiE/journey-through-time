@@ -4,147 +4,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <meta name="description" content="HISTORY QUEST - Journey Through Time">
-
     <title>HISTORY QUEST | Journey Through Time</title>
 
-    <!-- Pixel Art Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 
-    <!-- Stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <main id="game-container">
+<main id="game-container">
 
-        <!-- MAIN MENU -->
-        <section id="welcome-screen" class="screen active">
+    <!-- MAIN MENU -->
+    <section id="welcome-screen" class="screen active">
 
-            <div class="logo">
-                <span class="logo-icon">⌛</span>
-                <h1>HISTORY<br>QUEST</h1>
-                <p>JOURNEY THROUGH TIME</p>
+        <div class="logo">
+            <span class="logo-icon">⌛</span>
+            <h1>HISTORY<br>QUEST</h1>
+            <p>JOURNEY THROUGH TIME</p>
+        </div>
+
+        <div class="menu-content">
+            <p class="welcome-message">
+                THE PAST IS WAITING FOR YOU.
+                <br>
+                ARE YOU READY TO EXPLORE?
+            </p>
+
+            <div class="menu-buttons">
+                <button id="new-game-btn" class="game-button">NEW GAME</button>
+                <button id="continue-btn" class="game-button">CONTINUE</button>
+                <button id="settings-btn" class="game-button">SETTINGS</button>
             </div>
+        </div>
 
-            <div class="menu-content">
+        <footer>
+            <p>AN EDUCATIONAL ADVENTURE THROUGH HISTORY</p>
+            <p>© 2026 HISTORY QUEST</p>
+        </footer>
+    </section>
 
-                <p class="welcome-message">
-                    THE PAST IS WAITING FOR YOU.
-                    <br>
-                    ARE YOU READY TO EXPLORE?
-                </p>
+    <!-- WORLD SELECTION -->
+    <section id="world-selection-screen" class="screen">
 
-                <div class="menu-buttons">
+        <div class="page-header">
+            <h2>CHOOSE YOUR JOURNEY</h2>
+            <p>Select the history you want to explore.</p>
+        </div>
 
-                    <button id="new-game-btn" class="game-button">
-                        NEW GAME
-                    </button>
+        <div class="world-options">
 
-                    <button id="continue-btn" class="game-button">
-                        CONTINUE
-                    </button>
-
-                    <button id="settings-btn" class="game-button">
-                        SETTINGS
-                    </button>
-
-                </div>
-
-            </div>
-
-            <footer>
-                <p>AN EDUCATIONAL ADVENTURE THROUGH HISTORY</p>
-                <p>© 2026 HISTORY QUEST</p>
-            </footer>
-
-        </section>
-
-        <!-- WORLD SELECTION -->
-        <section id="world-selection-screen" class="screen">
-
-            <div class="page-header">
-                <h2>CHOOSE YOUR JOURNEY</h2>
-                <p>Select the history you want to explore.</p>
-            </div>
-
-            <div class="world-options">
-
-                <button id="us-history-btn" class="world-card">
-                    <span class="world-icon">🗽</span>
-                    <h3>US HISTORY</h3>
-                    <p>Discover the history of the United States.</p>
-                </button>
-
-                <button id="world-history-btn" class="world-card">
-                    <span class="world-icon">🌍</span>
-                    <h3>WORLD HISTORY</h3>
-                    <p>Explore civilizations and events around the world.</p>
-                </button>
-
-            </div>
-
-            <button id="back-menu-btn" class="game-button">
-                BACK TO MENU
+            <button id="us-history-btn" class="world-card">
+                <span class="world-icon">🗽</span>
+                <h3>US HISTORY</h3>
+                <p>Discover the history of the United States.</p>
             </button>
 
-        </section>
-
-        <!-- GAME SCREEN -->
-        <section id="game-screen" class="screen">
-
-            <div class="page-header">
-                <h2 id="selected-world-title">YOUR ADVENTURE</h2>
-                <p id="selected-world-description">
-                    Your historical journey begins here.
-                </p>
-            </div>
-
-            <div class="game-placeholder">
-                <span class="placeholder-icon">🏛️</span>
-                <h3>THE ADVENTURE AWAITS</h3>
-                <p>Your historical world will be built in the next development stage.</p>
-            </div>
-
-            <button id="game-back-btn" class="game-button">
-                BACK TO MENU
+            <button id="world-history-btn" class="world-card">
+                <span class="world-icon">🌍</span>
+                <h3>WORLD HISTORY</h3>
+                <p>Explore civilizations around the world.</p>
             </button>
 
-        </section>
+        </div>
 
-        <!-- SETTINGS -->
-        <section id="settings-screen" class="screen">
+        <button id="back-menu-btn" class="game-button">BACK TO MENU</button>
+    </section>
 
-            <div class="page-header">
-                <h2>SETTINGS</h2>
-                <p>Customize your game experience.</p>
+    <!-- GAME SCREEN -->
+    <section id="game-screen" class="screen">
+
+        <div class="game-header">
+            <div>
+                <h2 id="selected-world-title">HISTORICAL WORLD</h2>
+                <p id="location-name">THE HISTORICAL VILLAGE</p>
             </div>
 
-            <div class="settings-options">
-
-                <div class="setting-item">
-                    <span>Sound effects</span>
-                    <button id="sound-toggle-btn" class="game-button">
-                        SOUND: ON
-                    </button>
-                </div>
-
+            <div class="player-stats">
+                <span id="lives-display">❤️ ❤️ ❤️</span>
+                <span id="score-display">⭐ 0</span>
             </div>
+        </div>
 
-            <button id="back-settings-btn" class="game-button">
-                BACK TO MENU
-            </button>
+        <div class="game-instructions">
+            <span>WASD / ARROWS: MOVE</span>
+            <span>SPACE: INTERACT</span>
+        </div>
 
-        </section>
+        <div class="canvas-wrapper">
+            <canvas id="game-canvas" width="800" height="480">
+                Your browser does not support HTML Canvas.
+            </canvas>
+        </div>
 
-    </main>
+        <div class="game-message" id="game-message">
+            Explore the area and find the historical guide!
+        </div>
 
-    <!-- JavaScript -->
-    <script src="actions.js"></script>
+        <div class="game-controls">
+            <button id="interact-btn" class="game-button">INTERACT</button>
+            <button id="game-back-btn" class="game-button">EXIT GAME</button>
+        </div>
 
+        <!-- DIALOGUE -->
+        <div id="dialogue-box" class="dialogue-box hidden">
+            <h3 id="dialogue-title">HISTORICAL GUIDE</h3>
+            <p id="dialogue-text"></p>
+            <button id="dialogue-close-btn" class="game-button">CONTINUE</button>
+        </div>
+
+        <!-- QUIZ -->
+        <div id="quiz-box" class="dialogue-box hidden">
+            <h3 id="quiz-title">HISTORICAL CHALLENGE</h3>
+            <p id="quiz-question"></p>
+            <div id="quiz-options" class="quiz-options"></div>
+            <p id="quiz-feedback" aria-live="polite"></p>
+            <button id="quiz-close-btn" class="game-button hidden">CONTINUE</button>
+        </div>
+
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="settings-screen" class="screen">
+
+        <div class="page-header">
+            <h2>SETTINGS</h2>
+            <p>Customize your game experience.</p>
+        </div>
+
+        <div class="settings-options">
+            <div class="setting-item">
+                <span>Sound effects</span>
+                <button id="sound-toggle-btn" class="game-button">SOUND: ON</button>
+            </div>
+        </div>
+
+        <button id="back-settings-btn" class="game-button">BACK TO MENU</button>
+    </section>
+
+</main>
+
+<script src="actions.js"></script>
 </body>
 </html>
