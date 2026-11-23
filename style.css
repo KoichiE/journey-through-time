@@ -1,6 +1,6 @@
 
 /* =================================
-   HISTORY QUEST - BASE STYLES
+   HISTORY QUEST - GAME STYLES
 ================================= */
 
 :root {
@@ -107,13 +107,13 @@ body {
     margin-bottom: 30px;
 }
 
-/* BUTTONS */
-
 .menu-buttons {
     display: flex;
     flex-direction: column;
     gap: 15px;
 }
+
+/* BUTTONS */
 
 .game-button {
     font-family: 'Press Start 2P', monospace;
@@ -151,6 +151,127 @@ footer {
     line-height: 1.6;
 }
 
+/* GENERAL SCREENS */
+
+#world-selection-screen,
+#game-screen,
+#settings-screen {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 35px;
+    padding: 45px 25px;
+    background: var(--panel);
+    border: 3px solid #354662;
+    box-shadow: 0 0 35px rgba(0,0,0,0.4);
+}
+
+.page-header h2 {
+    font-family: 'Press Start 2P', monospace;
+    color: var(--primary);
+    font-size: clamp(17px, 3vw, 25px);
+    line-height: 1.8;
+    margin-bottom: 15px;
+}
+
+.page-header p {
+    font-size: 23px;
+    color: var(--muted);
+}
+
+/* WORLD SELECTION */
+
+.world-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 25px;
+    width: 100%;
+    max-width: 750px;
+}
+
+.world-card {
+    background: #263954;
+    border: 3px solid #425b7c;
+    color: white;
+    padding: 35px 20px;
+    cursor: pointer;
+    font-family: 'VT323', monospace;
+    transition: 0.2s ease;
+}
+
+.world-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-5px);
+    background: #304767;
+}
+
+.world-icon {
+    font-size: 55px;
+    display: block;
+    margin-bottom: 20px;
+}
+
+.world-card h3 {
+    color: var(--primary);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    margin-bottom: 15px;
+}
+
+.world-card p {
+    font-size: 21px;
+    color: var(--muted);
+}
+
+/* GAME PLACEHOLDER */
+
+.game-placeholder {
+    width: 100%;
+    max-width: 650px;
+    background: #263954;
+    border: 3px dashed #536c8e;
+    padding: 60px 20px;
+}
+
+.placeholder-icon {
+    font-size: 65px;
+}
+
+.game-placeholder h3 {
+    font-family: 'Press Start 2P', monospace;
+    color: var(--secondary);
+    font-size: 13px;
+    line-height: 1.8;
+    margin: 25px 0 15px;
+}
+
+.game-placeholder p {
+    font-size: 22px;
+    color: var(--muted);
+}
+
+/* SETTINGS */
+
+.settings-options {
+    width: 100%;
+    max-width: 500px;
+}
+
+.setting-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    background: #263954;
+    padding: 20px;
+    font-size: 24px;
+}
+
+.setting-item .game-button {
+    font-size: 10px;
+}
+
 /* RESPONSIVE */
 
 @media (max-width: 600px) {
@@ -179,5 +300,21 @@ footer {
     .game-button {
         font-size: 10px;
         padding: 18px 10px;
+    }
+
+    .world-options {
+        grid-template-columns: 1fr;
+    }
+
+    .world-card {
+        padding: 25px 15px;
+    }
+
+    .page-header h2 {
+        font-size: 15px;
+    }
+
+    .setting-item {
+        flex-direction: column;
     }
 }

@@ -22,7 +22,7 @@
 
     <main id="game-container">
 
-        <!-- Main Menu -->
+        <!-- MAIN MENU -->
         <section id="welcome-screen" class="screen active">
 
             <div class="logo">
@@ -40,6 +40,7 @@
                 </p>
 
                 <div class="menu-buttons">
+
                     <button id="new-game-btn" class="game-button">
                         NEW GAME
                     </button>
@@ -51,6 +52,7 @@
                     <button id="settings-btn" class="game-button">
                         SETTINGS
                     </button>
+
                 </div>
 
             </div>
@@ -62,18 +64,81 @@
 
         </section>
 
-        <!-- Future Game Screens -->
-
+        <!-- WORLD SELECTION -->
         <section id="world-selection-screen" class="screen">
+
+            <div class="page-header">
+                <h2>CHOOSE YOUR JOURNEY</h2>
+                <p>Select the history you want to explore.</p>
+            </div>
+
+            <div class="world-options">
+
+                <button id="us-history-btn" class="world-card">
+                    <span class="world-icon">🗽</span>
+                    <h3>US HISTORY</h3>
+                    <p>Discover the history of the United States.</p>
+                </button>
+
+                <button id="world-history-btn" class="world-card">
+                    <span class="world-icon">🌍</span>
+                    <h3>WORLD HISTORY</h3>
+                    <p>Explore civilizations and events around the world.</p>
+                </button>
+
+            </div>
+
+            <button id="back-menu-btn" class="game-button">
+                BACK TO MENU
+            </button>
+
         </section>
 
+        <!-- GAME SCREEN -->
         <section id="game-screen" class="screen">
+
+            <div class="page-header">
+                <h2 id="selected-world-title">YOUR ADVENTURE</h2>
+                <p id="selected-world-description">
+                    Your historical journey begins here.
+                </p>
+            </div>
+
+            <div class="game-placeholder">
+                <span class="placeholder-icon">🏛️</span>
+                <h3>THE ADVENTURE AWAITS</h3>
+                <p>Your historical world will be built in the next development stage.</p>
+            </div>
+
+            <button id="game-back-btn" class="game-button">
+                BACK TO MENU
+            </button>
+
         </section>
 
-        <section id="results-screen" class="screen">
-        </section>
-
+        <!-- SETTINGS -->
         <section id="settings-screen" class="screen">
+
+            <div class="page-header">
+                <h2>SETTINGS</h2>
+                <p>Customize your game experience.</p>
+            </div>
+
+            <div class="settings-options">
+
+                <div class="setting-item">
+                    <span>Sound effects</span>
+                    <button id="sound-toggle-btn" class="game-button">
+                        SOUND: ON
+                    </button>
+                </div>
+
+            </div>
+
+            <button id="back-settings-btn" class="game-button">
+                BACK TO MENU
+            </button>
+
         </section>
 
     </main>
