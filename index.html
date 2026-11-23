@@ -5,36 +5,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta name="description" content="HISTORY QUEST - Journey Through Time. An interactive historical adventure game.">
+    <meta name="description" content="HISTORY QUEST - Journey Through Time">
 
     <title>HISTORY QUEST | Journey Through Time</title>
 
-    <!-- Pixel Art Font -->
+    <!-- Pixel Art Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 
-    <!-- Main Stylesheet -->
+    <!-- Stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <!-- Main Game Container -->
     <main id="game-container">
 
-        <!-- Welcome Screen -->
+        <!-- Main Menu -->
         <section id="welcome-screen" class="screen active">
 
-            <div class="game-logo">
-                <h1>HISTORY QUEST</h1>
-                <p class="subtitle">JOURNEY THROUGH TIME</p>
+            <div class="logo">
+                <span class="logo-icon">⌛</span>
+                <h1>HISTORY<br>QUEST</h1>
+                <p>JOURNEY THROUGH TIME</p>
             </div>
 
-            <div class="welcome-content">
-                <p class="intro-text">
-                    Every historical event has a story.
-                    Are you ready to discover yours?
+            <div class="menu-content">
+
+                <p class="welcome-message">
+                    THE PAST IS WAITING FOR YOU.
+                    <br>
+                    ARE YOU READY TO EXPLORE?
                 </p>
 
                 <div class="menu-buttons">
@@ -50,33 +52,34 @@
                         SETTINGS
                     </button>
                 </div>
+
             </div>
 
-            <footer class="game-footer">
+            <footer>
                 <p>AN EDUCATIONAL ADVENTURE THROUGH HISTORY</p>
                 <p>© 2026 HISTORY QUEST</p>
             </footer>
 
         </section>
 
-        <!-- Future Screens -->
+        <!-- Future Game Screens -->
 
         <section id="world-selection-screen" class="screen">
-            <!-- World History and US History selection -->
         </section>
 
         <section id="game-screen" class="screen">
-            <!-- Main gameplay area -->
+        </section>
+
+        <section id="results-screen" class="screen">
         </section>
 
         <section id="settings-screen" class="screen">
-            <!-- Game settings -->
         </section>
 
     </main>
 
-    <!-- Main JavaScript -->
-    <script src="script.js"></script>
+    <!-- JavaScript -->
+    <script src="actions.js"></script>
 
 </body>
 </html>
