@@ -22,7 +22,6 @@ const challenge = $("challenge");
 const resultOverlay = $("result-overlay");
 
 let world = "egypt";
-let map = [];
 let player = { x: 2, y: 9 };
 let xp = 0;
 let lives = 5;
@@ -39,6 +38,12 @@ let completed = {};
 let artifacts = {};
 let collected = {};
 let keysDown = new Set();
+
+// Remembers the previous quiz order during this session.
+const challengeShuffleHistory = {
+  questionOrders: {},
+  answerOrders: {}
+};
 
 const worlds = {
   egypt: {
@@ -175,45 +180,25 @@ function createMap() {
   const map = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 
   if (world === "egypt") {
-    // Nile on the western edge, a broad sandy settlement, and a processional path.
-    for (let y = 0; y < 10; y++) {
-      map[y][0] = 1;
-      map[y][1] = 1;
-    }
-
-    for (let x = 2; x < COLS; x++) map[10][x] = 3;
-    for (let y = 5; y < 10; y++) map[y][2] = 3;
-
-    [[4,3],[17,3],[18,8],[3,8],[11,2],[16,8]]
-      .forEach(([x,y]) => map[y][x] = 2);
-
-    [[7,2],[8,2],[9,2],[7,3],[8,3],[9,3]]
-      .forEach(([x,y]) => map[y][x] = 4);
-
-    [[5,8],[12,7],[16,6],[6,5]]
-      .forEach(([x,y]) => map[y][x] = 5);
-
-  } else {
-    // Colonial town: a central dirt road, grassy lots, houses, trees and a small pond.
     for (let x = 0; x < COLS; x++) map[10][x] = 3;
-    for (let y = 5; y < 11; y++) map[y][9] = 3;
-    for (let y = 0; y < 3; y++) map[y][19] = 1;
-
-    [[3,3],[4,3],[5,3],[3,4],[4,4],[5,4]]
-      .forEach(([x,y]) => map[y][x] = 4);
-
-    [[13,2],[14,2],[15,2],[13,3],[14,3],[15,3]]
-      .forEach(([x,y]) => map[y][x] = 4);
-
-    [[7,2],[10,5],[17,5],[3,8],[18,8],[11,8],[6,6],[17,9]]
-      .forEach(([x,y]) => map[y][x] = 2);
-
-    [[8,7],[12,6],[16,8]]
-      .forEach(([x,y]) => map[y][x] = 5);
+    for (let y = 0; y < 10; y++) map[y][0] = 1;
+    for (let y = 0; y < 10; y++) map[y][1] = 1;
+    [[4,3],[8,6],[17,3],[18,8],[3,8],[11,2]].forEach(([x,y]) => map[y][x] = 2);
+    [[7,2],[8,2],[9,2],[7,3],[8,3],[9,3]].forEach(([x,y]) => map[y][x] = 4);
+    [[5,8],[12,7],[16,6],[6,5]].forEach(([x,y]) => map[y][x] = 5);
+  } else {
+    for (let x = 0; x < COLS; x++) map[10][x] = 3;
+    for (let x = 0; x < COLS; x++) map[0][x] = 1;
+    for (let y = 0; y < 10; y++) map[y][0] = 1;
+    [[3,3],[4,3],[5,3],[3,4],[4,4],[5,4]].forEach(([x,y]) => map[y][x] = 4);
+    [[13,2],[14,2],[15,2],[13,3],[14,3],[15,3]].forEach(([x,y]) => map[y][x] = 4);
+    [[7,2],[10,5],[17,5],[3,8],[18,8],[11,8]].forEach(([x,y]) => map[y][x] = 2);
+    [[8,7],[12,6],[16,8]].forEach(([x,y]) => map[y][x] = 5);
   }
-
   return map;
 }
+
+let map = createMap();
 
 function tile(x,y) {
   return map[y]?.[x] ?? 1;
@@ -231,19 +216,12 @@ function rect(c,x,y,w,h,color) {
 function pyramid(c,x,y,size) {
   c.fillStyle="#b98246";
   c.beginPath();
-  c.moveTo(x,y);
-  c.lineTo(x-size/2,y+size*.7);
-  c.lineTo(x+size/2,y+size*.7);
-  c.closePath();
-  c.fill();
-
+  c.moveTo(x,y);c.lineTo(x-size/2,y+size*.7);c.lineTo(x+size/2,y+size*.7);
+  c.closePath();c.fill();
   c.fillStyle="#e3bc78";
   c.beginPath();
-  c.moveTo(x,y);
-  c.lineTo(x,y+size*.7);
-  c.lineTo(x+size/2,y+size*.7);
-  c.closePath();
-  c.fill();
+  c.moveTo(x,y);c.lineTo(x,y+size*.7);c.lineTo(x+size/2,y+size*.7);
+  c.closePath();c.fill();
 }
 
 function tree(c,x,y) {
@@ -253,25 +231,10 @@ function tree(c,x,y) {
   rect(c,x-7,y-32,14,10,"#65965a");
 }
 
-function palm(c,x,y) {
-  // Short pixel-art palm used only in the Egyptian world.
-  rect(c,x-4,y+1,8,31,"#87552e");
-  rect(c,x-2,y+8,4,23,"#a96d37");
-  rect(c,x-25,y-2,22,5,"#477b43");
-  rect(c,x+3,y-2,22,5,"#477b43");
-  rect(c,x-19,y-12,18,5,"#5d914b");
-  rect(c,x+1,y-12,18,5,"#5d914b");
-  rect(c,x-8,y-20,16,7,"#6d9d50");
-  rect(c,x-3,y-13,6,10,"#6d9d50");
-}
-
 function person(c,x,y,kind="player") {
   const guide=kind==="guide";
   const skin=guide?"#a96c4a":"#d6a078";
-  const clothes=world==="egypt"
-    ?(guide?"#eee0b5":"#345b7b")
-    :(guide?"#c5c7c7":"#304f75");
-
+  const clothes=world==="egypt"?(guide?"#eee0b5":"#345b7b"):(guide?"#c5c7c7":"#304f75");
   rect(c,x+5,y+34,30,5,"#0003");
   rect(c,x+12,y+4,17,16,skin);
   rect(c,x+10,y+2,21,7,guide?"#48372b":"#46382e");
@@ -282,12 +245,10 @@ function person(c,x,y,kind="player") {
   rect(c,x+32,y+21,5,12,skin);
   rect(c,x+10,y+33,9,8,"#514033");
   rect(c,x+23,y+33,9,8,"#514033");
-
   if(guide && world==="egypt"){
     rect(c,x+9,y-2,23,5,"#eee0b5");
     rect(c,x+15,y-6,12,5,"#eee0b5");
   }
-
   if(guide && world==="america"){
     rect(c,x+8,y-2,26,7,"#514e55");
     rect(c,x+12,y-7,18,6,"#514e55");
@@ -299,23 +260,14 @@ function drawEgyptBackground(c) {
   rect(c,0,0,800,160,"#85a5ad");
   rect(c,650,30,65,65,"#f6d37c");
   rect(c,0,150,800,90,"#c89a5b");
-
   pyramid(c,170,20,260);
   pyramid(c,430,75,180);
   pyramid(c,690,120,110);
-
   rect(c,0,250,800,230,"#d4a55f");
-
-  // Nile water and irrigated green strip distinguish the Egyptian landscape.
-  rect(c,0,285,78,195,"#397f91");
-  rect(c,0,298,78,4,"#a7d2c8");
-  rect(c,0,355,78,4,"#8fc2bd");
-  rect(c,78,285,30,195,"#8eaa5a");
-
-  palm(c,125,250);
-  palm(c,745,248);
-
-  rect(c,525,235,150,9,"#c49354");
+  rect(c,0,285,78,195,"#477f91");
+  rect(c,0,298,78,4,"#9bc6c1");
+  rect(c,0,355,78,4,"#9bc6c1");
+  tree(c,110,245);tree(c,745,248);
 }
 
 function drawAmericaBackground(c) {
@@ -323,142 +275,54 @@ function drawAmericaBackground(c) {
   rect(c,0,0,800,155,"#91b2bc");
   rect(c,650,35,60,60,"#f5d17d");
   rect(c,0,150,800,100,"#78926e");
-  rect(c,0,250,800,230,"#78915f");
-  rect(c,0,270,800,210,"#8fa36b");
-
-  // Open colonial farmland and a broad packed-earth road.
-  rect(c,0,360,800,62,"#a98b65");
-
-  for(let x=20;x<800;x+=42){
-    rect(c,x,330,18,3,"#617d4f");
-    rect(c,x+8,320,3,13,"#617d4f");
-  }
-
-  // Distant forest.
+  rect(c,0,250,800,230,"#b99a6d");
+  rect(c,0,270,800,210,"#b79a72");
   for(let x=20;x<800;x+=85){
     rect(c,x,125,12,90,"#634c36");
     rect(c,x-19,95,50,43,"#41694e");
     rect(c,x-12,77,37,35,"#527a53");
   }
-
-  // Colonial town buildings.
   rect(c,115,210,125,105,"#d8c5a1");
   rect(c,105,200,145,17,"#7d5140");
   rect(c,140,170,75,30,"#b79a73");
   rect(c,170,145,14,25,"#694b3c");
   rect(c,150,255,25,60,"#634a3a");
-  rect(c,125,235,22,22,"#547b91");
-  rect(c,205,235,22,22,"#547b91");
-  rect(c,175,170,5,28,"#e4e0d0");
-
   rect(c,350,225,145,90,"#d8c5a1");
   rect(c,340,215,165,15,"#754c3c");
   rect(c,390,185,65,30,"#b79a73");
   rect(c,410,155,15,30,"#68483b");
   rect(c,395,260,30,55,"#634a3a");
-  rect(c,365,245,24,22,"#547b91");
-  rect(c,455,245,24,22,"#547b91");
-
-  // Small colonial flag and fence line.
-  rect(c,555,170,4,92,"#6a4b37");
-  rect(c,559,174,46,24,"#f0e5cb");
-  rect(c,559,180,46,4,"#a34d43");
-  rect(c,559,188,46,4,"#a34d43");
-
-  for(let x=585;x<790;x+=34){
-    rect(c,x,300,5,38,"#76583e");
-  }
-
-  rect(c,585,310,205,4,"#76583e");
-  rect(c,585,326,205,4,"#76583e");
 }
 
 function drawTile(x,y,type) {
-  const px=x*TILE;
-  const py=y*TILE;
-
-  if (world === "egypt") {
-    if (type === 1) {
-      rect(ctx,px,py,40,40,"#397f91");
-      rect(ctx,px+4,py+8,20,3,"#9bc9c4");
-      rect(ctx,px+19,py+25,16,3,"#80b7b5");
-      rect(ctx,px+8,py+34,12,2,"#b1d4c8");
-
-    } else if (type === 2) {
-      rect(ctx,px,py,40,40,"#d9b16f");
-      palm(ctx,px+20,py+9);
-
-    } else if (type === 3) {
-      rect(ctx,px,py,40,40,"#c49a60");
-      rect(ctx,px+2,py+4,17,13,"#e0bd82");
-      rect(ctx,px+21,py+4,17,13,"#ad8552");
-      rect(ctx,px+2,py+22,17,15,"#ad8552");
-      rect(ctx,px+21,py+22,17,15,"#e0bd82");
-
-    } else if (type === 4) {
-      // Egyptian sandstone temple facade with columns and a heavy lintel.
-      rect(ctx,px,py,40,40,"#c99f67");
-      rect(ctx,px+2,py+4,36,7,"#9b7047");
-      rect(ctx,px+5,py+12,30,28,"#e2c38a");
-
-      [9,18,27].forEach(cx=>{
-        rect(ctx,px+cx,py+14,4,24,"#a97949");
-        rect(ctx,px+cx-1,py+13,6,3,"#f0d49b");
-      });
-
-      rect(ctx,px+15,py+25,10,15,"#694a35");
-
-    } else if (type === 5) {
-      rect(ctx,px,py,40,40,"#d9b16f");
-      rect(ctx,px+7,py+23,25,12,"#89765d");
-      rect(ctx,px+13,py+15,15,10,"#aa9473");
-
-    } else {
-      rect(ctx,px,py,40,40,"#d9b16f");
-      rect(ctx,px+8,py+11,3,3,"#c39455");
-      rect(ctx,px+28,py+27,4,3,"#edcf91");
-      rect(ctx,px+18,py+5,2,2,"#c39455");
-    }
-
-  } else {
-    if (type === 1) {
-      rect(ctx,px,py,40,40,"#527f91");
-      rect(ctx,px+4,py+9,18,3,"#a9c8c5");
-      rect(ctx,px+20,py+27,15,3,"#8fb5b5");
-
-    } else if (type === 2) {
-      rect(ctx,px,py,40,40,"#78915f");
-      tree(ctx,px+20,py+7);
-
-    } else if (type === 3) {
-      rect(ctx,px,py,40,40,"#9b805e");
-      rect(ctx,px+2,py+3,17,14,"#b89a70");
-      rect(ctx,px+21,py+3,17,14,"#8d7456");
-      rect(ctx,px+2,py+21,17,16,"#8d7456");
-      rect(ctx,px+21,py+21,17,16,"#b89a70");
-
-    } else if (type === 4) {
-      // Colonial timber house with pitched roof, clapboard walls and windows.
-      rect(ctx,px,py,40,40,"#b7a17e");
-      rect(ctx,px+2,py+7,36,5,"#754737");
-      rect(ctx,px+5,py+12,30,28,"#e0d0ad");
-      rect(ctx,px+3,py+8,34,4,"#4c3b34");
-      rect(ctx,px+7,py+17,7,8,"#547b91");
-      rect(ctx,px+26,py+17,7,8,"#547b91");
-      rect(ctx,px+18,py+27,7,13,"#694a39");
-      rect(ctx,px+9,py+28,22,2,"#c0ad8c");
-
-    } else if (type === 5) {
-      rect(ctx,px,py,40,40,"#78915f");
-      rect(ctx,px+8,py+22,23,13,"#827c68");
-      rect(ctx,px+14,py+15,14,9,"#a59b83");
-
-    } else {
-      rect(ctx,px,py,40,40,"#78915f");
-      rect(ctx,px+7,py+8,3,3,"#91a66c");
-      rect(ctx,px+28,py+27,4,3,"#a7b47a");
-      rect(ctx,px+18,py+17,2,2,"#637e50");
-    }
+  const px=x*TILE,py=y*TILE;
+  if(type===3){
+    rect(ctx,px,py,40,40,"#b49b78");
+    rect(ctx,px+2,py+3,17,14,"#d1b78f");
+    rect(ctx,px+21,py+3,17,14,"#9e8767");
+    rect(ctx,px+2,py+21,17,16,"#9e8767");
+    rect(ctx,px+21,py+21,17,16,"#d1b78f");
+  }else if(type===1){
+    rect(ctx,px,py,40,40,world==="egypt"?"#477f91":"#668f9d");
+    rect(ctx,px+4,py+9,18,3,"#a1c8c4");
+    rect(ctx,px+20,py+27,15,3,"#a1c8c4");
+  }else if(type===2){
+    rect(ctx,px,py,40,40,world==="egypt"?"#d5aa67":"#b99a72");
+    tree(ctx,px+20,py+7);
+  }else if(type===4){
+    rect(ctx,px,py,40,40,world==="egypt"?"#d1b17b":"#d7c6a5");
+    rect(ctx,px+3,py+3,34,8,"#80543e");
+    rect(ctx,px+8,py+12,24,28,"#e3cfaa");
+    rect(ctx,px+12,py+14,5,26,"#8c6748");
+    rect(ctx,px+24,py+14,5,26,"#8c6748");
+  }else if(type===5){
+    rect(ctx,px,py,40,40,world==="egypt"?"#d5aa67":"#b99a72");
+    rect(ctx,px+8,py+22,23,13,"#94816b");
+    rect(ctx,px+14,py+15,14,9,"#b4a18a");
+  }else{
+    rect(ctx,px,py,40,40,world==="egypt"?"#d5aa67":"#b99a72");
+    rect(ctx,px+8,py+11,3,3,"#c39455");
+    rect(ctx,px+28,py+27,4,3,"#e4c27e");
   }
 }
 
@@ -475,65 +339,26 @@ function nearNPC() {
   return Math.abs(player.x-n.x)+Math.abs(player.y-n.y)<=1;
 }
 
-function artifactPosition(mission=currentMission()) {
-  const desired = mission.artifact;
-  const npc = mission.npc;
-
-  const valid = (x,y) =>
-    x>=0 && x<COLS &&
-    y>=0 && y<ROWS &&
-    !blocked(x,y) &&
-    !(x===npc.x && y===npc.y);
-
-  if (valid(desired.x,desired.y)) {
-    return {x:desired.x,y:desired.y};
-  }
-
-  // If the authored spot overlaps a building, tree, rock, water or NPC,
-  // find the nearest walkable tile instead of drawing the artifact inside it.
-  for (let distance=1; distance<COLS+ROWS; distance++) {
-    for (let y=1; y<ROWS-1; y++) {
-      for (let x=2; x<COLS-1; x++) {
-        if (
-          Math.abs(x-desired.x)+Math.abs(y-desired.y)===distance &&
-          valid(x,y)
-        ) {
-          return {x,y};
-        }
-      }
-    }
-  }
-
-  return {x:2,y:9};
-}
-
 function nearArtifact() {
-  const a=artifactPosition();
+  const a=currentMission().artifact;
   return player.x===a.x && player.y===a.y;
 }
 
 function drawGame() {
-  if(world==="egypt") {
-    drawEgyptBackground(ctx);
-  } else {
-    drawAmericaBackground(ctx);
-  }
+  if(world==="egypt")drawEgyptBackground(ctx);
+  else drawAmericaBackground(ctx);
 
   for(let y=0;y<ROWS;y++){
-    for(let x=0;x<COLS;x++){
-      drawTile(x,y,tile(x,y));
-    }
+    for(let x=0;x<COLS;x++)drawTile(x,y,tile(x,y));
   }
 
   const mission=currentMission();
   const npc=mission.npc;
-  const artifact=artifactPosition(mission);
+  const artifact=mission.artifact;
 
   person(ctx,npc.x*TILE,npc.y*TILE,"guide");
 
   if(!artifacts[artifactKey()]){
-    // A small floating glow makes the collectible easy to spot on either map.
-    rect(ctx,artifact.x*TILE+9,artifact.y*TILE+31,22,3,"#0003");
     rect(ctx,artifact.x*TILE+12,artifact.y*TILE+15,16,16,"#f3cf6f");
     rect(ctx,artifact.x*TILE+15,artifact.y*TILE+10,10,6,"#fff0ad");
     rect(ctx,artifact.x*TILE+17,artifact.y*TILE+18,6,9,"#a16d32");
@@ -542,20 +367,14 @@ function drawGame() {
   person(ctx,player.x*TILE,player.y*TILE,"player");
 
   rect(ctx,12,12,220,30,"#192332cc");
-
   ctx.fillStyle="#fff0c4";
   ctx.font="bold 12px monospace";
-  ctx.fillText(
-    world==="egypt"?"ANCIENT EGYPT":"UNITED STATES",
-    22,
-    32
-  );
+  ctx.fillText(world==="egypt"?"ANCIENT EGYPT":"UNITED STATES",22,32);
 
   if(nearNPC()){
     ctx.fillStyle="#fff1b5";
     ctx.font="bold 12px monospace";
     ctx.fillText("SPACE: TALK",630,32);
-
   }else if(nearArtifact()){
     ctx.fillStyle="#fff1b5";
     ctx.font="bold 12px monospace";
@@ -568,23 +387,18 @@ function drawMenuArt(){
   rect(mctx,0,0,640,420,"#d5a968");
   rect(mctx,0,0,640,190,"#85a7b0");
   rect(mctx,470,40,65,65,"#f4d178");
-
   pyramid(mctx,170,45,280);
   pyramid(mctx,380,100,190);
-
   rect(mctx,0,255,640,165,"#477f91");
   rect(mctx,0,300,640,120,"#d2a25e");
-
-  tree(mctx,75,250);
-  tree(mctx,565,255);
-
+  tree(mctx,75,250);tree(mctx,565,255);
   rect(mctx,220,210,180,100,"#d7bb88");
   rect(mctx,210,198,200,17,"#95613e");
   rect(mctx,255,255,30,55,"#634b38");
   rect(mctx,335,255,30,55,"#634b38");
-
   person(mctx,455,280,"player");
 }
+
 /* =========================================
    NAVIGATION AND WORLD START
 ========================================= */
@@ -611,32 +425,19 @@ $("continue-game").addEventListener("click",()=>{
     showScreen("world-screen");
     return;
   }
-
   startGame();
 });
 
-$("open-settings").addEventListener("click",()=>{
-  showScreen("settings-screen");
-});
+$("open-settings").addEventListener("click",()=>showScreen("settings-screen"));
 
-document.querySelectorAll(".back-menu").forEach(b=>{
-  b.addEventListener("click",()=>{
-    showScreen("main-menu");
-  });
-});
+document.querySelectorAll(".back-menu").forEach(b=>b.addEventListener("click",()=>showScreen("main-menu")));
 
 document.querySelectorAll("[data-world]").forEach(button=>{
   button.addEventListener("click",()=>{
     world=button.dataset.world;
     player={x:2,y:9};
-    lives=5;
-
-    const next=worlds[world].missions.findIndex((m,i)=>
-      !completed[`${world}-${i}`]
-    );
-
-    activeMission=next===-1?0:next;
-
+    xp=0;lives=5;activeMission=0;
+    completed={};artifacts={};collected={};
     map=createMap();
     saveGame();
     startGame();
@@ -664,81 +465,47 @@ $("exit-game").addEventListener("click",()=>{
 ========================================= */
 
 function blocked(x,y){
-  if(x<0||x>=COLS||y<0||y>=ROWS) {
-    return true;
-  }
-
+  if(x<0||x>=COLS||y<0||y>=ROWS)return true;
   return [1,2,4,5].includes(tile(x,y));
 }
 
 function move(dx,dy){
-  if(
-    !gameActive ||
-    !dialogue.classList.contains("hidden") ||
-    !challenge.classList.contains("hidden") ||
-    !resultOverlay.classList.contains("hidden")
-  ) {
-    return;
-  }
+  if(!gameActive||!dialogue.classList.contains("hidden")||
+     !challenge.classList.contains("hidden")||
+     !resultOverlay.classList.contains("hidden"))return;
 
-  const nx=player.x+dx;
-  const ny=player.y+dy;
-
-  if(blocked(nx,ny)) return;
-
+  const nx=player.x+dx,ny=player.y+dy;
+  if(blocked(nx,ny))return;
   const npc=currentNPC();
+  if(nx===npc.x&&ny===npc.y)return;
 
-  if(nx===npc.x&&ny===npc.y) return;
-
-  player.x=nx;
-  player.y=ny;
-
+  player.x=nx;player.y=ny;
   playSound("move");
-
-  if(nearArtifact()) {
-    collectArtifact();
-  }
-
+  if(nearArtifact())collectArtifact();
   drawGame();
   saveGame();
 }
 
 document.addEventListener("keydown",e=>{
-  if(!gameActive) return;
-
+  if(!gameActive)return;
   const key=e.key.toLowerCase();
-
-  if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(key)) {
-    e.preventDefault();
-  }
+  if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(key))e.preventDefault();
 
   if(key===" "){
-    if(
-      !dialogue.classList.contains("hidden") ||
-      !challenge.classList.contains("hidden") ||
-      !resultOverlay.classList.contains("hidden")
-    ) {
-      return;
-    }
-
+    if(!dialogue.classList.contains("hidden")||
+       !challenge.classList.contains("hidden")||
+       !resultOverlay.classList.contains("hidden"))return;
     interact();
     return;
   }
 
   const directions={
-    w:[0,-1],
-    arrowup:[0,-1],
-    s:[0,1],
-    arrowdown:[0,1],
-    a:[-1,0],
-    arrowleft:[-1,0],
-    d:[1,0],
-    arrowright:[1,0]
+    w:[0,-1],arrowup:[0,-1],
+    s:[0,1],arrowdown:[0,1],
+    a:[-1,0],arrowleft:[-1,0],
+    d:[1,0],arrowright:[1,0]
   };
-
-  if(directions[key]) {
-    move(...directions[key]);
-  }
+  if(directions[key])move(...directions[key]);
 });
 
 $("interact").addEventListener("click",interact);
@@ -748,14 +515,9 @@ $("interact").addEventListener("click",interact);
 ========================================= */
 
 function interact(){
-  if(
-    !gameActive ||
-    !dialogue.classList.contains("hidden") ||
-    !challenge.classList.contains("hidden") ||
-    !resultOverlay.classList.contains("hidden")
-  ) {
-    return;
-  }
+  if(!gameActive||!dialogue.classList.contains("hidden")||
+     !challenge.classList.contains("hidden")||
+     !resultOverlay.classList.contains("hidden"))return;
 
   if(nearArtifact()){
     collectArtifact();
@@ -763,24 +525,13 @@ function interact(){
   }
 
   if(!nearNPC()){
-    showDialogue(
-      "EXPLORER",
-      "Explore the map! Find the character marked by a golden symbol. You can also search for the glowing artifact.",
-      ()=>{}
-    );
-
+    showDialogue("EXPLORER","Explore the map! Find the character marked by a golden symbol. You can also search for the glowing artifact.",()=>{});
     return;
   }
 
   const mission=currentMission();
-
   if(completed[missionKey()]){
-    showDialogue(
-      mission.npc.name,
-      "You have already completed this mission. Explore the world and continue your journey!",
-      ()=>{}
-    );
-
+    showDialogue(mission.npc.name,"You have already completed this mission. Explore the world and continue your journey!",()=>{});
     return;
   }
 
@@ -794,12 +545,9 @@ function interact(){
 function showDialogue(title,message,callback){
   $("dialogue-title").textContent=title;
   $("dialogue-text").textContent=message;
-  $("dialogue-role").textContent=
-    worlds[world].name+" · HISTORICAL CHARACTER";
-
+  $("dialogue-role").textContent=worlds[world].name+" · HISTORICAL CHARACTER";
   dialogue.classList.remove("hidden");
   dialogueCallback=callback;
-
   playSound("dialogue");
 }
 
@@ -812,41 +560,27 @@ function closeOverlays(){
 
 $("dialogue-action").addEventListener("click",()=>{
   const action=dialogueCallback;
-
   dialogueCallback=null;
   dialogue.classList.add("hidden");
-
-  if(action) {
-    action();
-  }
+  if(action)action();
 });
 
 function artifactKey(){
   return `${world}-${activeMission}`;
 }
-
 function missionKey(){
   return `${world}-${activeMission}`;
 }
 
 function collectArtifact(){
   const key=artifactKey();
-
-  if(artifacts[key]) return;
-
+  if(artifacts[key])return;
   artifacts[key]=true;
   xp+=50;
-
   playSound("collect");
   updateUI();
   saveGame();
-
-  showDialogue(
-    "ARTIFACT DISCOVERED!",
-    `You found the ${currentMission().artifact.name}! You earned 50 XP. This object represents an important part of the historical world.`,
-    ()=>{}
-  );
-
+  showDialogue("ARTIFACT DISCOVERED!",`You found the ${currentMission().artifact.name}! You earned 50 XP. This object represents an important part of the historical world.`,()=>{});
   drawGame();
 }
 
@@ -854,26 +588,72 @@ function collectArtifact(){
    CHALLENGES
 ========================================= */
 
+// Shuffles an array while avoiding the exact same order as last time.
+function shuffleDifferent(items, getKey, previousOrder){
+  if(items.length<2)return [...items];
+
+  const signature=list=>list.map(getKey).join("\u001f");
+  let shuffled=[...items];
+
+  for(let attempt=0;attempt<20;attempt++){
+    shuffled=[...items];
+
+    for(let i=shuffled.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];
+    }
+
+    if(signature(shuffled)!==previousOrder)return shuffled;
+  }
+
+  return [...items.slice(1),items[0]];
+}
+
 function startChallenge(){
   const mission=currentMission();
+  const historyKey=`${world}-${activeMission}`;
 
-  activeChallenge=mission.questions;
+  const shuffledQuestions=shuffleDifferent(
+    mission.questions,
+    question=>question.q,
+    challengeShuffleHistory.questionOrders[historyKey]
+  );
+
+  challengeShuffleHistory.questionOrders[historyKey]=
+    shuffledQuestions.map(question=>question.q).join("\u001f");
+
+  activeChallenge=shuffledQuestions.map(question=>{
+    const shuffledAnswers=shuffleDifferent(
+      question.a.map((answer,index)=>({
+        answer,
+        correct:index===question.c
+      })),
+      option=>option.answer,
+      challengeShuffleHistory.answerOrders[question.q]
+    );
+
+    challengeShuffleHistory.answerOrders[question.q]=
+      shuffledAnswers.map(option=>option.answer).join("\u001f");
+
+    return {
+      ...question,
+      a:shuffledAnswers.map(option=>option.answer),
+      c:shuffledAnswers.findIndex(option=>option.correct)
+    };
+  });
+
   challengeIndex=0;
   challengeCorrect=0;
-
   showQuestion();
 }
 
 function showQuestion(){
-  if(!activeChallenge) return;
-
+  if(!activeChallenge)return;
   challengeAnswered=false;
-
   const q=activeChallenge[challengeIndex];
 
   $("challenge-type").textContent=
     `MISSION ${activeMission+1} · QUESTION ${challengeIndex+1}/${activeChallenge.length}`;
-
   $("challenge-title").textContent=q.q;
   $("challenge-description").textContent="Choose the best answer.";
   $("challenge-feedback").textContent="";
@@ -885,14 +665,9 @@ function showQuestion(){
 
   q.a.forEach((answer,index)=>{
     const button=document.createElement("button");
-
     button.className="answer";
     button.textContent=answer;
-
-    button.addEventListener("click",()=>{
-      answerQuestion(index);
-    });
-
+    button.addEventListener("click",()=>answerQuestion(index));
     options.appendChild(button);
   });
 
@@ -900,8 +675,7 @@ function showQuestion(){
 }
 
 function answerQuestion(index){
-  if(challengeAnswered) return;
-
+  if(challengeAnswered)return;
   challengeAnswered=true;
 
   const q=activeChallenge[challengeIndex];
@@ -909,14 +683,8 @@ function answerQuestion(index){
 
   buttons.forEach((b,i)=>{
     b.disabled=true;
-
-    if(i===q.c) {
-      b.classList.add("correct");
-    }
-
-    if(i===index&&index!==q.c) {
-      b.classList.add("wrong");
-    }
+    if(i===q.c)b.classList.add("correct");
+    if(i===index&&index!==q.c)b.classList.add("wrong");
   });
 
   const feedback=$("challenge-feedback");
@@ -924,39 +692,28 @@ function answerQuestion(index){
   if(index===q.c){
     challengeCorrect++;
     xp+=30;
-
     feedback.textContent="CORRECT! +30 XP. "+q.e;
     feedback.classList.add("good");
-
     playSound("correct");
-
   }else{
     lives=Math.max(0,lives-1);
-
     feedback.textContent="NOT QUITE. "+q.e;
     feedback.classList.add("bad");
-
     playSound("wrong");
   }
 
   updateUI();
   saveGame();
-
   $("challenge-next").classList.remove("hidden");
 }
 
 $("challenge-next").addEventListener("click",()=>{
-  if(!activeChallenge) return;
+  if(!activeChallenge)return;
 
   if(lives<=0){
     activeChallenge=null;
     challenge.classList.add("hidden");
-
-    showResult(
-      "OUT OF LIVES",
-      "Your adventure is paused. You can restart this world from the world selection screen."
-    );
-
+    showResult("OUT OF LIVES","Your adventure is paused. You can restart this world from the world selection screen.");
     return;
   }
 
@@ -968,52 +725,33 @@ $("challenge-next").addEventListener("click",()=>{
     finishMission();
   }
 });
+
 function finishMission(){
   const total=activeChallenge.length;
   const passed=challengeCorrect>=2;
-
   activeChallenge=null;
   challenge.classList.add("hidden");
 
   if(passed){
     completed[missionKey()]=true;
     xp+=100;
-
     playSound("complete");
 
     if(activeMission===worlds[world].missions.length-1){
       saveGame();
       updateUI();
-
       const bothWorldsDone = ["egypt","america"].every(id =>
-        worlds[id].missions.every((m,i)=>
-          completed[`${id}-${i}`]
-        )
+        worlds[id].missions.every((m,i)=>completed[`${id}-${i}`])
       );
-
-      const completionTitle = bothWorldsDone
-        ? "HISTORY QUEST COMPLETED!"
-        : "WORLD COMPLETED!";
-
+      const completionTitle = bothWorldsDone ? "HISTORY QUEST COMPLETED!" : "WORLD COMPLETED!";
       const completionText = bothWorldsDone
         ? `Incredible work! You completed all ten missions across Ancient Egypt and US History. Your final score is ${xp} XP. You can revisit either world from the destination screen.`
         : `Amazing work! You completed all five missions in ${worlds[world].name}. You earned ${xp} XP. Return to the destination screen to explore the other historical world.`;
-
-      showResult(
-        completionTitle,
-        completionText,
-        ()=>{
-          gameActive=false;
-          closeOverlays();
-
-          showScreen(
-            bothWorldsDone
-              ?"main-menu"
-              :"world-screen"
-          );
-        }
-      );
-
+      showResult(completionTitle,completionText,()=>{
+        gameActive=false;
+        closeOverlays();
+        showScreen(bothWorldsDone?"main-menu":"world-screen");
+      });
       return;
     }
 
@@ -1022,7 +760,6 @@ function finishMission(){
       `You answered ${challengeCorrect} out of ${total} questions correctly. You earned 100 bonus XP. The next mission is now unlocked!`,
       true
     );
-
   }else{
     showResult(
       "MISSION NOT COMPLETED",
@@ -1037,8 +774,7 @@ function finishMission(){
 function showResult(title,message,unlock=false){
   $("result-title").textContent=title;
   $("result-text").textContent=message;
-  $("result-button").textContent="CONTINUE";
-
+  $("result-button").textContent=typeof unlock==="function"?"CONTINUE":"CONTINUE";
   resultOverlay.classList.remove("hidden");
 
   $("result-button").onclick=()=>{
@@ -1051,11 +787,7 @@ function showResult(title,message,unlock=false){
     }
 
     if(unlock){
-      activeMission=Math.min(
-        activeMission+1,
-        worlds[world].missions.length-1
-      );
-
+      activeMission=Math.min(activeMission+1,worlds[world].missions.length-1);
       player={x:2,y:9};
       map=createMap();
     }
@@ -1078,57 +810,28 @@ function showResult(title,message,unlock=false){
 
 function updateUI(){
   const missions=worlds[world].missions;
-
-  const finished=missions.filter((m,i)=>
-    completed[`${world}-${i}`]
-  ).length;
-
-  const artifactTotal=missions.filter((m,i)=>
-    artifacts[`${world}-${i}`]
-  ).length;
+  const finished=missions.filter((m,i)=>completed[`${world}-${i}`]).length;
+  const artifactTotal=missions.filter((m,i)=>artifacts[`${world}-${i}`]).length;
 
   $("world-name").textContent=worlds[world].name;
   $("map-name").textContent=worlds[world].mapName;
-
-  $("lives").textContent=
-    lives>0
-      ?"♥ ".repeat(lives).trim()
-      :"0";
-
-  $("xp").textContent=
-    String(xp).padStart(4,"0")+" XP";
-
+  $("lives").textContent=lives>0?"♥ ".repeat(lives).trim():"0";
+  $("xp").textContent=String(xp).padStart(4,"0")+" XP";
   $("mission-count").textContent=`${finished} / 5`;
   $("artifact-count").textContent=`${artifactTotal} / 5`;
 
   const mission=missions[activeMission];
-
   $("mission-title").textContent=mission.name;
   $("mission-description").textContent=mission.description;
-
   $("progress-fill").style.width=`${finished/5*100}%`;
-
-  $("progress-label").textContent=
-    `${Math.round(finished/5*100)}% COMPLETE`;
+  $("progress-label").textContent=`${Math.round(finished/5*100)}% COMPLETE`;
 
   $("mission-list").innerHTML="";
-
   missions.forEach((m,i)=>{
     const row=document.createElement("div");
-
-    row.className=
-      "mission-entry"+
-      (completed[`${world}-${i}`]?" done":"");
-
-    const status=completed[`${world}-${i}`]
-      ?"✓"
-      :i===activeMission
-        ?"▶"
-        :"🔒";
-
-    row.innerHTML=
-      `<span class="status">${status}</span><span>${m.name}</span>`;
-
+    row.className="mission-entry"+(completed[`${world}-${i}`]?" done":"");
+    const status=completed[`${world}-${i}`]?"✓":i===activeMission?"▶":"🔒";
+    row.innerHTML=`<span class="status">${status}</span><span>${m.name}</span>`;
     $("mission-list").appendChild(row);
   });
 }
@@ -1139,22 +842,11 @@ function updateUI(){
 
 function saveGame(){
   const data={
-    world,
-    player,
-    xp,
-    lives,
-    activeMission,
-    completed,
-    artifacts,
-    collected
+    world,player,xp,lives,activeMission,
+    completed,artifacts,collected
   };
-
   try{
-    localStorage.setItem(
-      SAVE_KEY,
-      JSON.stringify(data)
-    );
-
+    localStorage.setItem(SAVE_KEY,JSON.stringify(data));
   }catch(e){
     console.warn("Could not save progress",e);
   }
@@ -1162,55 +854,31 @@ function saveGame(){
 
 function loadGame(){
   const raw=localStorage.getItem(SAVE_KEY);
-
-  if(!raw) return false;
+  if(!raw)return false;
 
   try{
     const data=JSON.parse(raw);
-
-    world=data.world==="america"
-      ?"america"
-      :"egypt";
-
+    world=data.world==="america"?"america":"egypt";
     xp=Math.max(0,Number(data.xp)||0);
-
-    lives=Math.max(
-      0,
-      Math.min(5,Number(data.lives)||0)
-    );
-
-    activeMission=Math.max(
-      0,
-      Math.min(4,Number(data.activeMission)||0)
-    );
-
+    lives=Math.max(0,Math.min(5,Number(data.lives)||0));
+    activeMission=Math.max(0,Math.min(4,Number(data.activeMission)||0));
     completed=data.completed||{};
     artifacts=data.artifacts||{};
     collected=data.collected||{};
 
-    const x=Number(data.player?.x);
-    const y=Number(data.player?.y);
-
+    const x=Number(data.player?.x),y=Number(data.player?.y);
     player={
       x:Number.isInteger(x)&&x>=0&&x<COLS?x:2,
       y:Number.isInteger(y)&&y>=0&&y<ROWS?y:9
     };
 
     map=createMap();
+    if(blocked(player.x,player.y))player={x:2,y:9};
 
-    if(blocked(player.x,player.y)){
-      player={x:2,y:9};
-    }
-
-    // Move to the first incomplete mission.
-    const next=worlds[world].missions.findIndex((m,i)=>
-      !completed[`${world}-${i}`]
-    );
-
+    const next=worlds[world].missions.findIndex((m,i)=>!completed[`${world}-${i}`]);
     activeMission=next===-1?0:next;
 
     return true;
-
   }catch(e){
     console.warn("Saved game could not be loaded",e);
     return false;
@@ -1218,44 +886,25 @@ function loadGame(){
 }
 
 $("reset-game").addEventListener("click",()=>{
-  if(!confirm("Reset all your History Quest progress?")) {
-    return;
-  }
-
+  if(!confirm("Reset all your History Quest progress?"))return;
   localStorage.removeItem(SAVE_KEY);
-
-  world="egypt";
-  player={x:2,y:9};
-  xp=0;
-  lives=5;
-
-  activeMission=0;
-  completed={};
-  artifacts={};
-  collected={};
-
+  world="egypt";player={x:2,y:9};xp=0;lives=5;
+  activeMission=0;completed={};artifacts={};collected={};
   updateUI();
   showScreen("main-menu");
 });
+
 /* =========================================
    SOUND EFFECTS
 ========================================= */
 
 function playSound(type){
-  if(!soundEnabled) return;
-
+  if(!soundEnabled)return;
   try{
     const Audio=window.AudioContext||window.webkitAudioContext;
-
-    if(!Audio) return;
-
-    if(!audioContext) {
-      audioContext=new Audio();
-    }
-
-    if(audioContext.state==="suspended") {
-      audioContext.resume();
-    }
+    if(!Audio)return;
+    if(!audioContext)audioContext=new Audio();
+    if(audioContext.state==="suspended")audioContext.resume();
 
     const notes={
       click:[440,.06],
@@ -1266,31 +915,17 @@ function playSound(type){
       collect:[920,.16],
       complete:[880,.28]
     };
-
     const [frequency,duration]=notes[type]||notes.click;
-
     const osc=audioContext.createOscillator();
     const gain=audioContext.createGain();
-
     osc.type="square";
     osc.frequency.value=frequency;
-
-    gain.gain.setValueAtTime(
-      .035,
-      audioContext.currentTime
-    );
-
-    gain.gain.exponentialRampToValueAtTime(
-      .001,
-      audioContext.currentTime+duration
-    );
-
+    gain.gain.setValueAtTime(.035,audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.001,audioContext.currentTime+duration);
     osc.connect(gain);
     gain.connect(audioContext.destination);
-
     osc.start();
     osc.stop(audioContext.currentTime+duration);
-
   }catch(e){
     console.warn("Audio unavailable",e);
   }
@@ -1298,10 +933,7 @@ function playSound(type){
 
 $("sound-toggle").addEventListener("change",e=>{
   soundEnabled=e.target.checked;
-
-  if(soundEnabled) {
-    playSound("click");
-  }
+  if(soundEnabled)playSound("click");
 });
 
 /* =========================================
