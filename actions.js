@@ -1,985 +1,1314 @@
-
 "use strict";
 
 /* =========================================
-   HISTORY QUEST - ANCIENT EGYPT EDITION
+   HISTORY QUEST - COMPLETE EDITION
+   No external assets required.
 ========================================= */
 
-const STORAGE_KEY = "historyQuestEgyptProgress";
-
-const canvas = document.getElementById("game-canvas");
+const $ = id => document.getElementById(id);
+const canvas = $("game-canvas");
 const ctx = canvas.getContext("2d");
-const menuCanvas = document.getElementById("menu-canvas");
-const menuCtx = menuCanvas.getContext("2d");
-const dialogueBox = document.getElementById("dialogue-box");
+const menuCanvas = $("menu-canvas");
+const mctx = menuCanvas.getContext("2d");
 
 const TILE = 40;
 const COLS = 20;
 const ROWS = 12;
+const SAVE_KEY = "historyQuestCompleteV1";
 
 const screens = document.querySelectorAll(".screen");
+const dialogue = $("dialogue");
+const challenge = $("challenge");
+const resultOverlay = $("result-overlay");
 
-let currentWorld = "egypt";
-let score = 0;
-let lives = 3;
-let quizCompleted = false;
+let world = "egypt";
+let map = [];
+let player = { x: 2, y: 9 };
+let xp = 0;
+let lives = 5;
 let soundEnabled = true;
 let gameActive = false;
-let quizAnswered = false;
-let dialogueAction = null;
+let activeMission = 0;
+let activeChallenge = null;
+let challengeIndex = 0;
+let challengeCorrect = 0;
+let challengeAnswered = false;
+let dialogueCallback = null;
 let audioContext = null;
+let completed = {};
+let artifacts = {};
+let collected = {};
+let keysDown = new Set();
 
-let player = { x: 3, y: 9 };
+const worlds = {
+  egypt: {
+    name: "ANCIENT EGYPT",
+    mapName: "THE NILE VALLEY",
+    guide: "Nefru",
+    greeting: "Welcome, traveler! I am Nefru, a scholar of the Nile. Five adventures await you. Explore the valley, speak to its people, and learn how our civilization grew.",
+    missions: [
+      {
+        name: "Gift of the Nile",
+        description: "Discover why the Nile River made Egyptian civilization possible.",
+        npc: { x: 5, y: 5, name: "Nefru" },
+        artifact: { x: 3, y: 3, name: "Nile Scroll" },
+        questions: [
+          { q: "Which river was essential to Ancient Egypt?", a: ["Amazon", "Nile", "Tigris", "Danube"], c: 1, e: "The Nile provided water, transportation and fertile soil." },
+          { q: "What did the annual Nile floods leave behind?", a: ["Gold", "Fertile soil", "Snow", "Salt"], c: 1, e: "Floodwaters deposited nutrient-rich silt on farmland." },
+          { q: "Which activity depended heavily on the Nile?", a: ["Farming", "Arctic hunting", "Deep-sea fishing", "Mining ice"], c: 0, e: "Farmers used the river's water and fertile banks to grow crops." }
+        ]
+      },
+      {
+        name: "The Power of the Pharaohs",
+        description: "Meet the ruler and learn how Ancient Egypt was governed.",
+        npc: { x: 15, y: 4, name: "Royal Scribe" },
+        artifact: { x: 17, y: 2, name: "Royal Seal" },
+        questions: [
+          { q: "What was a pharaoh?", a: ["A farmer", "A ruler of Egypt", "A merchant ship", "A soldier only"], c: 1, e: "The pharaoh was the king or queen who ruled Ancient Egypt." },
+          { q: "What was one responsibility of a pharaoh?", a: ["Govern the kingdom", "Build Roman roads", "Elect senators", "Control the Atlantic"], c: 0, e: "Pharaohs led government, religion and major public projects." },
+          { q: "Which symbol was associated with royal authority?", a: ["A crown", "A steam engine", "A printing press", "A compass"], c: 0, e: "Royal crowns and regalia represented the authority of Egyptian rulers." }
+        ]
+      },
+      {
+        name: "Builders of Eternity",
+        description: "Explore the monuments and understand their purpose.",
+        npc: { x: 7, y: 7, name: "Master Builder" },
+        artifact: { x: 9, y: 2, name: "Builder's Plan" },
+        questions: [
+          { q: "What was the main purpose of many Egyptian pyramids?", a: ["Markets", "Royal tombs", "Schools", "Harbors"], c: 1, e: "Pyramids were monumental tombs built for Egyptian rulers." },
+          { q: "Where are the famous pyramids of Giza?", a: ["Egypt", "Greece", "India", "Mexico"], c: 0, e: "The Giza pyramid complex is located in Egypt." },
+          { q: "What material was commonly used in pyramid construction?", a: ["Stone blocks", "Plastic", "Steel frames", "Glass"], c: 0, e: "Large limestone and other stone blocks were used in construction." }
+        ]
+      },
+      {
+        name: "Gods and Beliefs",
+        description: "Discover the religious beliefs of Ancient Egyptians.",
+        npc: { x: 14, y: 8, name: "Temple Priest" },
+        artifact: { x: 18, y: 5, name: "Sacred Amulet" },
+        questions: [
+          { q: "Ancient Egyptian religion was generally...", a: ["Monotheistic throughout", "Polytheistic", "Without gods", "Based on democracy"], c: 1, e: "Egyptians worshipped many gods and goddesses." },
+          { q: "Who was associated with mummification and the afterlife?", a: ["Anubis", "Poseidon", "Zeus", "Mars"], c: 0, e: "Anubis was strongly associated with funerary practices." },
+          { q: "Why did Egyptians preserve some bodies as mummies?", a: ["For the afterlife", "For sports", "For trade", "For farming"], c: 0, e: "Mummification was connected to beliefs about life after death." }
+        ]
+      },
+      {
+        name: "Life Along the Nile",
+        description: "Learn about the work, trade and daily lives of Egyptians.",
+        npc: { x: 10, y: 3, name: "Village Merchant" },
+        artifact: { x: 2, y: 7, name: "Trade Ledger" },
+        questions: [
+          { q: "Which crop was important in Ancient Egyptian agriculture?", a: ["Wheat", "Coffee", "Potatoes", "Cocoa"], c: 0, e: "Wheat and barley were important crops." },
+          { q: "What was papyrus used to make?", a: ["Writing material", "Iron tools", "Glass windows", "Coins"], c: 0, e: "Papyrus was processed into a writing material." },
+          { q: "Which group was especially important for record keeping?", a: ["Scribes", "Gladiators", "Knights", "Senators"], c: 0, e: "Scribes recorded taxes, trade, administration and religious texts." }
+        ]
+      }
+    ]
+  },
 
-const npc = { x: 15, y: 8 };
-
-/* =========================================
-   MAP
-   0 = sand
-   1 = water
-   2 = palm tree
-   3 = stone path
-   4 = temple
-   5 = rock
-========================================= */
-
-const map = Array.from({ length: ROWS }, () =>
-    Array(COLS).fill(0)
-);
-
-// Horizontal stone road
-for (let x = 1; x < COLS - 1; x++) {
-    map[9][x] = 3;
-}
-
-// Path leading to the guide
-for (let y = 7; y <= 9; y++) {
-    map[y][15] = 3;
-}
-
-// Palm trees
-map[5][3] = 2;
-map[7][6] = 2;
-map[5][18] = 2;
-map[8][18] = 2;
-map[3][12] = 2;
-
-// Rocks
-map[8][2] = 5;
-map[6][9] = 5;
-map[10][17] = 5;
-
-// Temple structure
-map[3][7] = 4;
-map[3][8] = 4;
-map[3][9] = 4;
-map[4][7] = 4;
-map[4][8] = 4;
-map[4][9] = 4;
-
-/* =========================================
-   HISTORICAL CONTENT
-========================================= */
-
-const historicalContent = {
-    egypt: {
-        label: "ANCIENT EGYPT",
-        location: "THE NILE VALLEY",
-        guideTitle: "HISTORICAL GUIDE",
-        guideMessage:
-            "Welcome, traveler! You have arrived in Ancient Egypt. This civilization grew along the Nile River, where farming, trade, architecture, and powerful pharaohs shaped its history. Are you ready for your first challenge?",
-        question:
-            "Which river was essential to the development of Ancient Egyptian civilization?",
-        answers: [
-            "The Amazon River",
-            "The Nile River",
-            "The Tigris River",
-            "The Mississippi River"
-        ],
-        correct: 1,
-        explanation:
-            "The Nile River was essential to Ancient Egypt. Its annual floods deposited fertile soil, while its water supported farming, transportation, and settlements."
-    },
-
-    us: {
-        label: "US HISTORY",
-        location: "THE AMERICAN REVOLUTION",
-        guideTitle: "HISTORICAL GUIDE",
-        guideMessage:
-            "Welcome, explorer! Before continuing your journey through American history, let's test your knowledge of the country's founding.",
-        question:
-            "In which year was the Declaration of Independence adopted?",
-        answers: ["1492", "1776", "1812", "1865"],
-        correct: 1,
-        explanation:
-            "The Declaration of Independence was adopted on July 4, 1776. It announced that the thirteen American colonies considered themselves independent from Great Britain."
-    }
+  america: {
+    name: "US HISTORY",
+    mapName: "COLONIAL AMERICA",
+    guide: "Samuel",
+    greeting: "Welcome to colonial America! I am Samuel, a local guide. Explore the settlement, meet its residents and discover the events that shaped the United States.",
+    missions: [
+      {
+        name: "The Thirteen Colonies",
+        description: "Discover the beginnings of English settlement in North America.",
+        npc: { x: 5, y: 5, name: "Colonial Guide" },
+        artifact: { x: 3, y: 3, name: "Colonial Map" },
+        questions: [
+          { q: "How many colonies declared independence in 1776?", a: ["10", "13", "15", "20"], c: 1, e: "Thirteen British colonies declared independence." },
+          { q: "Which European country controlled the thirteen colonies?", a: ["Spain", "France", "Great Britain", "Portugal"], c: 2, e: "The colonies were under British rule." },
+          { q: "Which economic activity was important in many colonies?", a: ["Agriculture", "Space travel", "Computer design", "Oil drilling"], c: 0, e: "Agriculture was important, alongside trade and other industries." }
+        ]
+      },
+      {
+        name: "The Road to Independence",
+        description: "Understand the tensions that led to the American Revolution.",
+        npc: { x: 15, y: 4, name: "Colonial Journalist" },
+        artifact: { x: 17, y: 2, name: "Liberty Pamphlet" },
+        questions: [
+          { q: "Which event involved colonists protesting British taxation in 1773?", a: ["Boston Tea Party", "Battle of Gettysburg", "Watergate", "Moon landing"], c: 0, e: "The Boston Tea Party was a protest against British tea policies." },
+          { q: "What was a major colonial complaint?", a: ["Taxation without representation", "Too much voting", "Free university", "No trade at all"], c: 0, e: "Colonists objected to taxation without representation in Parliament." },
+          { q: "When did the American Revolution begin?", a: ["1775", "1492", "1812", "1865"], c: 0, e: "The conflict began in 1775." }
+        ]
+      },
+      {
+        name: "Declaration of Independence",
+        description: "Explore the document that announced American independence.",
+        npc: { x: 7, y: 7, name: "Town Clerk" },
+        artifact: { x: 9, y: 2, name: "Declaration Copy" },
+        questions: [
+          { q: "In which year was the Declaration adopted?", a: ["1776", "1787", "1812", "1861"], c: 0, e: "It was adopted on July 4, 1776." },
+          { q: "Who was the principal author of the Declaration?", a: ["Thomas Jefferson", "George Washington", "Abraham Lincoln", "Benjamin Franklin"], c: 0, e: "Thomas Jefferson was the principal author." },
+          { q: "What did the Declaration announce?", a: ["Independence from Britain", "The end of slavery", "The Constitution", "The end of all wars"], c: 0, e: "It announced that the colonies considered themselves independent." }
+        ]
+      },
+      {
+        name: "Creating a Constitution",
+        description: "Learn how the new country organized its government.",
+        npc: { x: 14, y: 8, name: "Convention Delegate" },
+        artifact: { x: 18, y: 5, name: "Constitution Draft" },
+        questions: [
+          { q: "In which year was the US Constitution written?", a: ["1776", "1787", "1800", "1865"], c: 1, e: "The Constitutional Convention drafted it in 1787." },
+          { q: "What are the three branches of the US federal government?", a: ["Executive, legislative, judicial", "Army, navy, air force", "North, south, west", "State, city, county"], c: 0, e: "The Constitution separates power among three branches." },
+          { q: "What is the main role of the legislative branch?", a: ["Make laws", "Interpret laws", "Enforce laws", "Lead the military"], c: 0, e: "Congress, the legislative branch, makes federal laws." }
+        ]
+      },
+      {
+        name: "A Nation Divided",
+        description: "Discover the causes and consequences of the Civil War.",
+        npc: { x: 10, y: 3, name: "History Teacher" },
+        artifact: { x: 2, y: 7, name: "Historical Newspaper" },
+        questions: [
+          { q: "In which year did the Civil War begin?", a: ["1776", "1812", "1861", "1865"], c: 2, e: "The Civil War began in 1861." },
+          { q: "Which issue was central to the conflict?", a: ["Slavery", "Space exploration", "The internet", "The gold standard"], c: 0, e: "Slavery and its expansion were central causes of the conflict." },
+          { q: "Who was president during the Civil War?", a: ["George Washington", "Abraham Lincoln", "Thomas Jefferson", "John Adams"], c: 1, e: "Abraham Lincoln was president during the Civil War." }
+        ]
+      }
+    ]
+  }
 };
 
-/* =========================================
-   SCREEN NAVIGATION
-========================================= */
+/* TILE MAP: 0 ground, 1 water, 2 trees, 3 path, 4 building, 5 rock */
+function createMap() {
+  const map = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 
-function showScreen(id) {
-    screens.forEach(screen => screen.classList.add("hidden"));
-
-    const selected = document.getElementById(id);
-    if (selected) selected.classList.remove("hidden");
-}
-
-document.getElementById("brand-home").addEventListener("click", event => {
-    event.preventDefault();
-    gameActive = false;
-    showScreen("main-menu");
-});
-
-document.getElementById("new-game-btn").addEventListener("click", () => {
-    playSound("click");
-    showScreen("world-selection");
-});
-
-document.getElementById("continue-btn").addEventListener("click", () => {
-    playSound("click");
-
-    if (!loadProgress()) {
-        showScreen("world-selection");
-        return;
+  if (world === "egypt") {
+    // Nile on the western edge, a broad sandy settlement, and a processional path.
+    for (let y = 0; y < 10; y++) {
+      map[y][0] = 1;
+      map[y][1] = 1;
     }
 
-    if (lives <= 0 || quizCompleted) {
-        showScreen("world-selection");
-        return;
-    }
+    for (let x = 2; x < COLS; x++) map[10][x] = 3;
+    for (let y = 5; y < 10; y++) map[y][2] = 3;
 
-    startGame();
-});
+    [[4,3],[17,3],[18,8],[3,8],[11,2],[16,8]]
+      .forEach(([x,y]) => map[y][x] = 2);
 
-document.getElementById("settings-btn").addEventListener("click", () => {
-    playSound("click");
-    showScreen("settings-screen");
-});
+    [[7,2],[8,2],[9,2],[7,3],[8,3],[9,3]]
+      .forEach(([x,y]) => map[y][x] = 4);
 
-document.querySelectorAll("[data-screen]").forEach(button => {
-    button.addEventListener("click", () => {
-        playSound("click");
-        showScreen(button.dataset.screen);
-    });
-});
+    [[5,8],[12,7],[16,6],[6,5]]
+      .forEach(([x,y]) => map[y][x] = 5);
 
-document.querySelectorAll(".world-card").forEach(card => {
-    card.addEventListener("click", () => {
-        currentWorld = card.dataset.world;
-        score = 0;
-        lives = 3;
-        quizCompleted = false;
-        player = { x: 3, y: 9 };
+  } else {
+    // Colonial town: a central dirt road, grassy lots, houses, trees and a small pond.
+    for (let x = 0; x < COLS; x++) map[10][x] = 3;
+    for (let y = 5; y < 11; y++) map[y][9] = 3;
+    for (let y = 0; y < 3; y++) map[y][19] = 1;
 
-        saveProgress();
-        playSound("click");
-        startGame();
-    });
-});
+    [[3,3],[4,3],[5,3],[3,4],[4,4],[5,4]]
+      .forEach(([x,y]) => map[y][x] = 4);
 
-/* =========================================
-   GAME INITIALIZATION
-========================================= */
+    [[13,2],[14,2],[15,2],[13,3],[14,3],[15,3]]
+      .forEach(([x,y]) => map[y][x] = 4);
 
-function startGame() {
-    gameActive = true;
-    quizAnswered = false;
+    [[7,2],[10,5],[17,5],[3,8],[18,8],[11,8],[6,6],[17,9]]
+      .forEach(([x,y]) => map[y][x] = 2);
 
-    closeDialogue();
-    document.getElementById("quiz-box").classList.add("hidden");
-    document.getElementById("game-over-box").classList.add("hidden");
+    [[8,7],[12,6],[16,8]]
+      .forEach(([x,y]) => map[y][x] = 5);
+  }
 
-    const content = historicalContent[currentWorld];
-
-    document.getElementById("world-label").textContent = content.label;
-    document.getElementById("location-title").textContent = content.location;
-
-    updateHUD();
-    showScreen("game-screen");
-    drawWorld();
-    saveProgress();
+  return map;
 }
 
-document.getElementById("exit-game-btn").addEventListener("click", () => {
-    gameActive = false;
-    closeDialogue();
-    document.getElementById("quiz-box").classList.add("hidden");
-    document.getElementById("game-over-box").classList.add("hidden");
-
-    saveProgress();
-    playSound("click");
-    showScreen("main-menu");
-});
-
-/* =========================================
-   PIXEL ART DRAWING HELPERS
-========================================= */
-
-function pixel(context, x, y, width, height, color) {
-    context.fillStyle = color;
-    context.fillRect(Math.round(x), Math.round(y), width, height);
-}
-
-function drawPyramid(context, x, y, size) {
-    const height = size * 0.7;
-
-    context.fillStyle = "#bd894b";
-    context.beginPath();
-    context.moveTo(x, y);
-    context.lineTo(x - size / 2, y + height);
-    context.lineTo(x + size / 2, y + height);
-    context.closePath();
-    context.fill();
-
-    context.fillStyle = "#e0b66d";
-    context.beginPath();
-    context.moveTo(x, y);
-    context.lineTo(x, y + height);
-    context.lineTo(x + size / 2, y + height);
-    context.closePath();
-    context.fill();
-
-    context.fillStyle = "#9a6c3e";
-    for (let row = 1; row < 5; row++) {
-        const lineY = y + row * height / 5;
-        const halfWidth = (row * size) / 10;
-
-        context.fillRect(x - halfWidth, lineY, halfWidth * 2, 2);
-    }
-}
-
-function drawPalm(context, x, y, scale = 1) {
-    const trunkWidth = 12 * scale;
-    const trunkHeight = 38 * scale;
-
-    pixel(
-        context,
-        x - trunkWidth / 2,
-        y,
-        trunkWidth,
-        trunkHeight,
-        "#89552f"
-    );
-
-    const leafColor = "#3e7850";
-    const lightLeaf = "#568d55";
-
-    pixel(context, x - 7 * scale, y - 37 * scale, 14 * scale, 12 * scale, leafColor);
-    pixel(context, x - 31 * scale, y - 31 * scale, 28 * scale, 9 * scale, leafColor);
-    pixel(context, x + 3 * scale, y - 31 * scale, 28 * scale, 9 * scale, leafColor);
-    pixel(context, x - 25 * scale, y - 45 * scale, 24 * scale, 9 * scale, lightLeaf);
-    pixel(context, x + 1 * scale, y - 45 * scale, 24 * scale, 9 * scale, lightLeaf);
-    pixel(context, x - 8 * scale, y - 51 * scale, 16 * scale, 9 * scale, leafColor);
+function tile(x,y) {
+  return map[y]?.[x] ?? 1;
 }
 
 /* =========================================
-   MENU PIXEL ART
+   PIXEL DRAWING
 ========================================= */
 
-function drawMenuScene() {
-    const c = menuCtx;
-
-    c.clearRect(0, 0, 640, 420);
-
-    // Sky
-    pixel(c, 0, 0, 640, 420, "#d8ad69");
-    pixel(c, 0, 0, 640, 205, "#83a3ad");
-    pixel(c, 0, 180, 640, 45, "#a8b4a0");
-
-    // Sun
-    c.fillStyle = "#f7d16f";
-    c.fillRect(465, 45, 64, 64);
-    c.fillRect(481, 29, 32, 96);
-
-    // Distant landscape
-    pixel(c, 0, 205, 640, 55, "#c89b5a");
-    drawPyramid(c, 180, 65, 300);
-    drawPyramid(c, 370, 105, 205);
-    drawPyramid(c, 515, 145, 120);
-
-    // Sand
-    pixel(c, 0, 260, 640, 160, "#d5a65f");
-
-    // Nile
-    pixel(c, 0, 290, 640, 46, "#477f94");
-    pixel(c, 0, 300, 640, 4, "#7bb4ba");
-    pixel(c, 40, 321, 65, 3, "#b0d0c4");
-    pixel(c, 350, 314, 80, 3, "#b0d0c4");
-
-    // Foreground sand
-    pixel(c, 0, 340, 640, 80, "#bd8950");
-    drawPalm(c, 75, 365, 1.25);
-    drawPalm(c, 570, 368, 1.1);
-
-    // Temple
-    pixel(c, 240, 242, 170, 98, "#d9bb85");
-    pixel(c, 225, 228, 200, 18, "#9d6241");
-    pixel(c, 240, 218, 170, 12, "#d9bb85");
-    pixel(c, 265, 275, 25, 65, "#79583f");
-    pixel(c, 325, 275, 25, 65, "#79583f");
-    pixel(c, 285, 280, 20, 60, "#4e5960");
-    pixel(c, 295, 280, 10, 60, "#35424d");
-
-    // Temple decoration
-    for (let x = 248; x < 400; x += 25) {
-        pixel(c, x, 250, 4, 6, "#9b764b");
-    }
-
-    // Ground details
-    for (let x = 20; x < 620; x += 45) {
-        pixel(c, x, 385 + (x % 3) * 4, 8, 3, "#e3bd78");
-    }
-
-    // Tiny character
-    drawPixelCharacter(c, 465, 337, "player");
+function rect(c,x,y,w,h,color) {
+  c.fillStyle = color;
+  c.fillRect(Math.round(x),Math.round(y),w,h);
 }
 
-/* =========================================
-   WORLD BACKGROUND
-========================================= */
+function pyramid(c,x,y,size) {
+  c.fillStyle="#b98246";
+  c.beginPath();
+  c.moveTo(x,y);
+  c.lineTo(x-size/2,y+size*.7);
+  c.lineTo(x+size/2,y+size*.7);
+  c.closePath();
+  c.fill();
 
-function drawWorldBackground() {
-    // Sky
-    pixel(ctx, 0, 0, 800, 480, "#d8b16f");
-    pixel(ctx, 0, 0, 800, 160, "#83a5ad");
-
-    // Sun
-    pixel(ctx, 665, 35, 62, 62, "#f4ce70");
-    pixel(ctx, 681, 19, 30, 94, "#f4ce70");
-
-    // Distant dunes
-    pixel(ctx, 0, 155, 800, 80, "#c99d61");
-    drawPyramid(ctx, 160, 20, 240);
-    drawPyramid(ctx, 410, 70, 180);
-    drawPyramid(ctx, 710, 105, 110);
-
-    // Distant desert
-    pixel(ctx, 0, 235, 800, 245, "#d7ad68");
-    pixel(ctx, 0, 240, 800, 12, "#c69858");
-
-    // Nile river on the left
-    pixel(ctx, 0, 275, 80, 205, "#477e91");
-    pixel(ctx, 0, 285, 80, 5, "#86b9b8");
-    pixel(ctx, 0, 330, 80, 4, "#8bbdb8");
-    pixel(ctx, 0, 390, 80, 4, "#8bbdb8");
-
-    // Distant palm trees
-    drawPalm(ctx, 105, 280, 1.1);
-    drawPalm(ctx, 750, 270, 1.0);
-
-    // Pixel texture in sand
-    for (let x = 100; x < 790; x += 73) {
-        const y = 245 + ((x * 7) % 90);
-        pixel(ctx, x, y, 7, 3, "#e9c77f");
-        pixel(ctx, x + 24, y + 20, 4, 3, "#bd9153");
-    }
-
-    // Foreground ground texture
-    for (let x = 0; x < 800; x += TILE) {
-        pixel(ctx, x, 468, TILE, 12, "#b88b53");
-    }
+  c.fillStyle="#e3bc78";
+  c.beginPath();
+  c.moveTo(x,y);
+  c.lineTo(x,y+size*.7);
+  c.lineTo(x+size/2,y+size*.7);
+  c.closePath();
+  c.fill();
 }
 
-/* =========================================
-   MAP TILES
-========================================= */
+function tree(c,x,y) {
+  rect(c,x-5,y-2,10,35,"#76502e");
+  rect(c,x-23,y-12,46,9,"#397449");
+  rect(c,x-17,y-23,34,11,"#4b8950");
+  rect(c,x-7,y-32,14,10,"#65965a");
+}
 
-function drawTile(x, y, type) {
-    const px = x * TILE;
-    const py = y * TILE;
+function palm(c,x,y) {
+  // Short pixel-art palm used only in the Egyptian world.
+  rect(c,x-4,y+1,8,31,"#87552e");
+  rect(c,x-2,y+8,4,23,"#a96d37");
+  rect(c,x-25,y-2,22,5,"#477b43");
+  rect(c,x+3,y-2,22,5,"#477b43");
+  rect(c,x-19,y-12,18,5,"#5d914b");
+  rect(c,x+1,y-12,18,5,"#5d914b");
+  rect(c,x-8,y-20,16,7,"#6d9d50");
+  rect(c,x-3,y-13,6,10,"#6d9d50");
+}
 
-    if (type === 3) {
-        pixel(ctx, px, py, TILE, TILE, "#b79b73");
-        pixel(ctx, px + 2, py + 3, 17, 13, "#d0b58b");
-        pixel(ctx, px + 21, py + 3, 17, 13, "#a98a64");
-        pixel(ctx, px + 2, py + 21, 17, 15, "#a98a64");
-        pixel(ctx, px + 21, py + 21, 17, 15, "#d0b58b");
-        pixel(ctx, px, py + 18, TILE, 2, "#8e795d");
-        return;
-    }
+function person(c,x,y,kind="player") {
+  const guide=kind==="guide";
+  const skin=guide?"#a96c4a":"#d6a078";
+  const clothes=world==="egypt"
+    ?(guide?"#eee0b5":"#345b7b")
+    :(guide?"#c5c7c7":"#304f75");
 
+  rect(c,x+5,y+34,30,5,"#0003");
+  rect(c,x+12,y+4,17,16,skin);
+  rect(c,x+10,y+2,21,7,guide?"#48372b":"#46382e");
+  rect(c,x+16,y+12,3,3,"#252525");
+  rect(c,x+24,y+12,3,3,"#252525");
+  rect(c,x+8,y+20,25,14,clothes);
+  rect(c,x+4,y+21,5,12,skin);
+  rect(c,x+32,y+21,5,12,skin);
+  rect(c,x+10,y+33,9,8,"#514033");
+  rect(c,x+23,y+33,9,8,"#514033");
+
+  if(guide && world==="egypt"){
+    rect(c,x+9,y-2,23,5,"#eee0b5");
+    rect(c,x+15,y-6,12,5,"#eee0b5");
+  }
+
+  if(guide && world==="america"){
+    rect(c,x+8,y-2,26,7,"#514e55");
+    rect(c,x+12,y-7,18,6,"#514e55");
+  }
+}
+
+function drawEgyptBackground(c) {
+  rect(c,0,0,800,480,"#d6aa68");
+  rect(c,0,0,800,160,"#85a5ad");
+  rect(c,650,30,65,65,"#f6d37c");
+  rect(c,0,150,800,90,"#c89a5b");
+
+  pyramid(c,170,20,260);
+  pyramid(c,430,75,180);
+  pyramid(c,690,120,110);
+
+  rect(c,0,250,800,230,"#d4a55f");
+
+  // Nile water and irrigated green strip distinguish the Egyptian landscape.
+  rect(c,0,285,78,195,"#397f91");
+  rect(c,0,298,78,4,"#a7d2c8");
+  rect(c,0,355,78,4,"#8fc2bd");
+  rect(c,78,285,30,195,"#8eaa5a");
+
+  palm(c,125,250);
+  palm(c,745,248);
+
+  rect(c,525,235,150,9,"#c49354");
+}
+
+function drawAmericaBackground(c) {
+  rect(c,0,0,800,480,"#8fa8b1");
+  rect(c,0,0,800,155,"#91b2bc");
+  rect(c,650,35,60,60,"#f5d17d");
+  rect(c,0,150,800,100,"#78926e");
+  rect(c,0,250,800,230,"#78915f");
+  rect(c,0,270,800,210,"#8fa36b");
+
+  // Open colonial farmland and a broad packed-earth road.
+  rect(c,0,360,800,62,"#a98b65");
+
+  for(let x=20;x<800;x+=42){
+    rect(c,x,330,18,3,"#617d4f");
+    rect(c,x+8,320,3,13,"#617d4f");
+  }
+
+  // Distant forest.
+  for(let x=20;x<800;x+=85){
+    rect(c,x,125,12,90,"#634c36");
+    rect(c,x-19,95,50,43,"#41694e");
+    rect(c,x-12,77,37,35,"#527a53");
+  }
+
+  // Colonial town buildings.
+  rect(c,115,210,125,105,"#d8c5a1");
+  rect(c,105,200,145,17,"#7d5140");
+  rect(c,140,170,75,30,"#b79a73");
+  rect(c,170,145,14,25,"#694b3c");
+  rect(c,150,255,25,60,"#634a3a");
+  rect(c,125,235,22,22,"#547b91");
+  rect(c,205,235,22,22,"#547b91");
+  rect(c,175,170,5,28,"#e4e0d0");
+
+  rect(c,350,225,145,90,"#d8c5a1");
+  rect(c,340,215,165,15,"#754c3c");
+  rect(c,390,185,65,30,"#b79a73");
+  rect(c,410,155,15,30,"#68483b");
+  rect(c,395,260,30,55,"#634a3a");
+  rect(c,365,245,24,22,"#547b91");
+  rect(c,455,245,24,22,"#547b91");
+
+  // Small colonial flag and fence line.
+  rect(c,555,170,4,92,"#6a4b37");
+  rect(c,559,174,46,24,"#f0e5cb");
+  rect(c,559,180,46,4,"#a34d43");
+  rect(c,559,188,46,4,"#a34d43");
+
+  for(let x=585;x<790;x+=34){
+    rect(c,x,300,5,38,"#76583e");
+  }
+
+  rect(c,585,310,205,4,"#76583e");
+  rect(c,585,326,205,4,"#76583e");
+}
+
+function drawTile(x,y,type) {
+  const px=x*TILE;
+  const py=y*TILE;
+
+  if (world === "egypt") {
     if (type === 1) {
-        pixel(ctx, px, py, TILE, TILE, "#477e91");
-        pixel(ctx, px + 5, py + 9, 17, 3, "#8dbec0");
-        pixel(ctx, px + 19, py + 26, 15, 3, "#8dbec0");
-        return;
+      rect(ctx,px,py,40,40,"#397f91");
+      rect(ctx,px+4,py+8,20,3,"#9bc9c4");
+      rect(ctx,px+19,py+25,16,3,"#80b7b5");
+      rect(ctx,px+8,py+34,12,2,"#b1d4c8");
+
+    } else if (type === 2) {
+      rect(ctx,px,py,40,40,"#d9b16f");
+      palm(ctx,px+20,py+9);
+
+    } else if (type === 3) {
+      rect(ctx,px,py,40,40,"#c49a60");
+      rect(ctx,px+2,py+4,17,13,"#e0bd82");
+      rect(ctx,px+21,py+4,17,13,"#ad8552");
+      rect(ctx,px+2,py+22,17,15,"#ad8552");
+      rect(ctx,px+21,py+22,17,15,"#e0bd82");
+
+    } else if (type === 4) {
+      // Egyptian sandstone temple facade with columns and a heavy lintel.
+      rect(ctx,px,py,40,40,"#c99f67");
+      rect(ctx,px+2,py+4,36,7,"#9b7047");
+      rect(ctx,px+5,py+12,30,28,"#e2c38a");
+
+      [9,18,27].forEach(cx=>{
+        rect(ctx,px+cx,py+14,4,24,"#a97949");
+        rect(ctx,px+cx-1,py+13,6,3,"#f0d49b");
+      });
+
+      rect(ctx,px+15,py+25,10,15,"#694a35");
+
+    } else if (type === 5) {
+      rect(ctx,px,py,40,40,"#d9b16f");
+      rect(ctx,px+7,py+23,25,12,"#89765d");
+      rect(ctx,px+13,py+15,15,10,"#aa9473");
+
+    } else {
+      rect(ctx,px,py,40,40,"#d9b16f");
+      rect(ctx,px+8,py+11,3,3,"#c39455");
+      rect(ctx,px+28,py+27,4,3,"#edcf91");
+      rect(ctx,px+18,py+5,2,2,"#c39455");
     }
 
-    if (type === 2) {
-        pixel(ctx, px, py, TILE, TILE, "#d3a663");
-        drawPalm(ctx, px + 20, py + 39, 0.8);
-        return;
-    }
+  } else {
+    if (type === 1) {
+      rect(ctx,px,py,40,40,"#527f91");
+      rect(ctx,px+4,py+9,18,3,"#a9c8c5");
+      rect(ctx,px+20,py+27,15,3,"#8fb5b5");
 
-    if (type === 4) {
-        pixel(ctx, px, py, TILE, TILE, "#d1b17b");
-        pixel(ctx, px + 3, py + 3, 34, 7, "#96623e");
-        pixel(ctx, px + 5, py + 11, 30, 29, "#d7bc8b");
-        pixel(ctx, px + 12, py + 14, 5, 26, "#8c6748");
-        pixel(ctx, px + 24, py + 14, 5, 26, "#8c6748");
-        return;
-    }
+    } else if (type === 2) {
+      rect(ctx,px,py,40,40,"#78915f");
+      tree(ctx,px+20,py+7);
 
-    if (type === 5) {
-        pixel(ctx, px, py, TILE, TILE, "#d3a663");
-        pixel(ctx, px + 9, py + 22, 21, 13, "#a48a6b");
-        pixel(ctx, px + 14, py + 15, 13, 9, "#b8a080");
-        return;
-    }
+    } else if (type === 3) {
+      rect(ctx,px,py,40,40,"#9b805e");
+      rect(ctx,px+2,py+3,17,14,"#b89a70");
+      rect(ctx,px+21,py+3,17,14,"#8d7456");
+      rect(ctx,px+2,py+21,17,16,"#8d7456");
+      rect(ctx,px+21,py+21,17,16,"#b89a70");
 
-    // Sand tile
-    pixel(ctx, px, py, TILE, TILE, "#d5aa67");
-    pixel(ctx, px + 7, py + 10, 3, 3, "#c49556");
-    pixel(ctx, px + 29, py + 28, 4, 3, "#e5bf7b");
+    } else if (type === 4) {
+      // Colonial timber house with pitched roof, clapboard walls and windows.
+      rect(ctx,px,py,40,40,"#b7a17e");
+      rect(ctx,px+2,py+7,36,5,"#754737");
+      rect(ctx,px+5,py+12,30,28,"#e0d0ad");
+      rect(ctx,px+3,py+8,34,4,"#4c3b34");
+      rect(ctx,px+7,py+17,7,8,"#547b91");
+      rect(ctx,px+26,py+17,7,8,"#547b91");
+      rect(ctx,px+18,py+27,7,13,"#694a39");
+      rect(ctx,px+9,py+28,22,2,"#c0ad8c");
+
+    } else if (type === 5) {
+      rect(ctx,px,py,40,40,"#78915f");
+      rect(ctx,px+8,py+22,23,13,"#827c68");
+      rect(ctx,px+14,py+15,14,9,"#a59b83");
+
+    } else {
+      rect(ctx,px,py,40,40,"#78915f");
+      rect(ctx,px+7,py+8,3,3,"#91a66c");
+      rect(ctx,px+28,py+27,4,3,"#a7b47a");
+      rect(ctx,px+18,py+17,2,2,"#637e50");
+    }
+  }
 }
 
-/* =========================================
-   PIXEL CHARACTERS
-========================================= */
-
-function drawPixelCharacter(context, x, y, type) {
-    const isGuide = type === "guide";
-
-    const skin = isGuide ? "#b9794e" : "#d9a276";
-    const clothes = isGuide ? "#f0d59b" : "#315b82";
-    const hair = isGuide ? "#493326" : "#49372e";
-
-    // Shadow
-    pixel(context, x + 6, y + 34, 28, 5, "rgba(0,0,0,.2)");
-
-    // Head
-    pixel(context, x + 12, y + 4, 17, 16, skin);
-
-    // Hair / head covering
-    pixel(context, x + 10, y + 2, 21, 7, hair);
-    pixel(context, x + 10, y + 7, 4, 12, hair);
-
-    if (isGuide) {
-        pixel(context, x + 9, y, 23, 5, "#e7d7ad");
-        pixel(context, x + 14, y - 4, 13, 5, "#e7d7ad");
-    }
-
-    // Eyes
-    pixel(context, x + 16, y + 12, 3, 3, "#252525");
-    pixel(context, x + 24, y + 12, 3, 3, "#252525");
-
-    // Body
-    pixel(context, x + 8, y + 20, 25, 14, clothes);
-    pixel(context, x + 13, y + 22, 14, 4, isGuide ? "#d3a45b" : "#4779a5");
-
-    // Arms
-    pixel(context, x + 4, y + 21, 5, 12, skin);
-    pixel(context, x + 32, y + 21, 5, 12, skin);
-
-    // Legs
-    pixel(context, x + 10, y + 33, 9, 8, "#544237");
-    pixel(context, x + 23, y + 33, 9, 8, "#544237");
-
-    if (isGuide) {
-        // Staff
-        pixel(context, x + 36, y + 9, 3, 33, "#68482f");
-        pixel(context, x + 34, y + 7, 7, 5, "#e8c66c");
-    }
+function currentMission() {
+  return worlds[world].missions[activeMission];
 }
 
-function drawPlayer() {
-    drawPixelCharacter(
-        ctx,
-        player.x * TILE,
-        player.y * TILE,
-        "player"
-    );
+function currentNPC() {
+  return currentMission().npc;
 }
 
-function drawNPC() {
-    drawPixelCharacter(
-        ctx,
-        npc.x * TILE,
-        npc.y * TILE,
-        "guide"
-    );
-
-    // Interaction marker
-    pixel(ctx, npc.x * TILE + 13, npc.y * TILE - 19, 15, 15, "#f4cf72");
-    pixel(ctx, npc.x * TILE + 18, npc.y * TILE - 15, 5, 7, "#3b3330");
-    pixel(ctx, npc.x * TILE + 18, npc.y * TILE - 5, 5, 3, "#3b3330");
+function nearNPC() {
+  const n=currentNPC();
+  return Math.abs(player.x-n.x)+Math.abs(player.y-n.y)<=1;
 }
 
-/* =========================================
-   DRAW GAME WORLD
-========================================= */
+function artifactPosition(mission=currentMission()) {
+  const desired = mission.artifact;
+  const npc = mission.npc;
 
-function drawWorld() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const valid = (x,y) =>
+    x>=0 && x<COLS &&
+    y>=0 && y<ROWS &&
+    !blocked(x,y) &&
+    !(x===npc.x && y===npc.y);
 
-    drawWorldBackground();
+  if (valid(desired.x,desired.y)) {
+    return {x:desired.x,y:desired.y};
+  }
 
-    for (let y = 0; y < ROWS; y++) {
-        for (let x = 0; x < COLS; x++) {
-            drawTile(x, y, map[y][x]);
+  // If the authored spot overlaps a building, tree, rock, water or NPC,
+  // find the nearest walkable tile instead of drawing the artifact inside it.
+  for (let distance=1; distance<COLS+ROWS; distance++) {
+    for (let y=1; y<ROWS-1; y++) {
+      for (let x=2; x<COLS-1; x++) {
+        if (
+          Math.abs(x-desired.x)+Math.abs(y-desired.y)===distance &&
+          valid(x,y)
+        ) {
+          return {x,y};
         }
+      }
     }
+  }
 
-    drawNPC();
-    drawPlayer();
+  return {x:2,y:9};
+}
 
-    // Location label
-    pixel(ctx, 12, 12, 205, 29, "rgba(27,35,44,.8)");
-    ctx.fillStyle = "#f8e4b8";
-    ctx.font = "bold 12px monospace";
-    ctx.fillText(
-        currentWorld === "egypt" ? "NILE VALLEY" : "HISTORICAL WORLD",
-        22,
-        31
+function nearArtifact() {
+  const a=artifactPosition();
+  return player.x===a.x && player.y===a.y;
+}
+
+function drawGame() {
+  if(world==="egypt") {
+    drawEgyptBackground(ctx);
+  } else {
+    drawAmericaBackground(ctx);
+  }
+
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      drawTile(x,y,tile(x,y));
+    }
+  }
+
+  const mission=currentMission();
+  const npc=mission.npc;
+  const artifact=artifactPosition(mission);
+
+  person(ctx,npc.x*TILE,npc.y*TILE,"guide");
+
+  if(!artifacts[artifactKey()]){
+    // A small floating glow makes the collectible easy to spot on either map.
+    rect(ctx,artifact.x*TILE+9,artifact.y*TILE+31,22,3,"#0003");
+    rect(ctx,artifact.x*TILE+12,artifact.y*TILE+15,16,16,"#f3cf6f");
+    rect(ctx,artifact.x*TILE+15,artifact.y*TILE+10,10,6,"#fff0ad");
+    rect(ctx,artifact.x*TILE+17,artifact.y*TILE+18,6,9,"#a16d32");
+  }
+
+  person(ctx,player.x*TILE,player.y*TILE,"player");
+
+  rect(ctx,12,12,220,30,"#192332cc");
+
+  ctx.fillStyle="#fff0c4";
+  ctx.font="bold 12px monospace";
+  ctx.fillText(
+    world==="egypt"?"ANCIENT EGYPT":"UNITED STATES",
+    22,
+    32
+  );
+
+  if(nearNPC()){
+    ctx.fillStyle="#fff1b5";
+    ctx.font="bold 12px monospace";
+    ctx.fillText("SPACE: TALK",630,32);
+
+  }else if(nearArtifact()){
+    ctx.fillStyle="#fff1b5";
+    ctx.font="bold 12px monospace";
+    ctx.fillText("SPACE: COLLECT",610,32);
+  }
+}
+
+/* MENU ART */
+function drawMenuArt(){
+  rect(mctx,0,0,640,420,"#d5a968");
+  rect(mctx,0,0,640,190,"#85a7b0");
+  rect(mctx,470,40,65,65,"#f4d178");
+
+  pyramid(mctx,170,45,280);
+  pyramid(mctx,380,100,190);
+
+  rect(mctx,0,255,640,165,"#477f91");
+  rect(mctx,0,300,640,120,"#d2a25e");
+
+  tree(mctx,75,250);
+  tree(mctx,565,255);
+
+  rect(mctx,220,210,180,100,"#d7bb88");
+  rect(mctx,210,198,200,17,"#95613e");
+  rect(mctx,255,255,30,55,"#634b38");
+  rect(mctx,335,255,30,55,"#634b38");
+
+  person(mctx,455,280,"player");
+}
+/* =========================================
+   NAVIGATION AND WORLD START
+========================================= */
+
+function showScreen(id){
+  screens.forEach(s=>s.classList.add("hidden"));
+  $(id).classList.remove("hidden");
+}
+
+$("home-link").addEventListener("click",e=>{
+  e.preventDefault();
+  gameActive=false;
+  closeOverlays();
+  showScreen("main-menu");
+});
+
+$("new-game").addEventListener("click",()=>{
+  playSound("click");
+  showScreen("world-screen");
+});
+
+$("continue-game").addEventListener("click",()=>{
+  if(!loadGame()){
+    showScreen("world-screen");
+    return;
+  }
+
+  startGame();
+});
+
+$("open-settings").addEventListener("click",()=>{
+  showScreen("settings-screen");
+});
+
+document.querySelectorAll(".back-menu").forEach(b=>{
+  b.addEventListener("click",()=>{
+    showScreen("main-menu");
+  });
+});
+
+document.querySelectorAll("[data-world]").forEach(button=>{
+  button.addEventListener("click",()=>{
+    world=button.dataset.world;
+    player={x:2,y:9};
+    lives=5;
+
+    const next=worlds[world].missions.findIndex((m,i)=>
+      !completed[`${world}-${i}`]
     );
 
-    // Nearby guide prompt
-    if (isNearNPC()) {
-        ctx.fillStyle = "#fff0bb";
-        ctx.font = "bold 12px monospace";
-        ctx.fillText("PRESS SPACE TO TALK", 540, 35);
-    }
+    activeMission=next===-1?0:next;
+
+    map=createMap();
+    saveGame();
+    startGame();
+  });
+});
+
+function startGame(){
+  map=createMap();
+  gameActive=true;
+  closeOverlays();
+  updateUI();
+  showScreen("game-screen");
+  drawGame();
 }
+
+$("exit-game").addEventListener("click",()=>{
+  gameActive=false;
+  saveGame();
+  closeOverlays();
+  showScreen("main-menu");
+});
 
 /* =========================================
    MOVEMENT
 ========================================= */
 
-function isBlocked(x, y) {
-    if (x < 0 || x >= COLS || y < 0 || y >= ROWS) {
-        return true;
-    }
+function blocked(x,y){
+  if(x<0||x>=COLS||y<0||y>=ROWS) {
+    return true;
+  }
 
-    const tile = map[y][x];
-    return tile === 1 || tile === 2 || tile === 4 || tile === 5;
+  return [1,2,4,5].includes(tile(x,y));
 }
 
-function movePlayer(dx, dy) {
-    if (!gameActive) return;
+function move(dx,dy){
+  if(
+    !gameActive ||
+    !dialogue.classList.contains("hidden") ||
+    !challenge.classList.contains("hidden") ||
+    !resultOverlay.classList.contains("hidden")
+  ) {
+    return;
+  }
 
-    if (!dialogueBox.classList.contains("hidden")) return;
-    if (!document.getElementById("quiz-box").classList.contains("hidden")) return;
-    if (!document.getElementById("game-over-box").classList.contains("hidden")) return;
+  const nx=player.x+dx;
+  const ny=player.y+dy;
 
-    const nextX = player.x + dx;
-    const nextY = player.y + dy;
+  if(blocked(nx,ny)) return;
 
-    if (isBlocked(nextX, nextY)) return;
+  const npc=currentNPC();
 
-    // Do not walk through the guide
-    if (nextX === npc.x && nextY === npc.y) return;
+  if(nx===npc.x&&ny===npc.y) return;
 
-    player.x = nextX;
-    player.y = nextY;
+  player.x=nx;
+  player.y=ny;
 
-    playSound("move");
-    drawWorld();
-    saveProgress();
+  playSound("move");
+
+  if(nearArtifact()) {
+    collectArtifact();
+  }
+
+  drawGame();
+  saveGame();
 }
 
-document.addEventListener("keydown", event => {
-    if (!gameActive) return;
+document.addEventListener("keydown",e=>{
+  if(!gameActive) return;
 
-    const key = event.key.toLowerCase();
+  const key=e.key.toLowerCase();
 
-    if ([
-        "arrowup", "arrowdown", "arrowleft",
-        "arrowright", " "
-    ].includes(key)) {
-        event.preventDefault();
+  if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(key)) {
+    e.preventDefault();
+  }
+
+  if(key===" "){
+    if(
+      !dialogue.classList.contains("hidden") ||
+      !challenge.classList.contains("hidden") ||
+      !resultOverlay.classList.contains("hidden")
+    ) {
+      return;
     }
 
-    if (key === "w" || key === "arrowup") movePlayer(0, -1);
-    if (key === "s" || key === "arrowdown") movePlayer(0, 1);
-    if (key === "a" || key === "arrowleft") movePlayer(-1, 0);
-    if (key === "d" || key === "arrowright") movePlayer(1, 0);
+    interact();
+    return;
+  }
 
-    if (key === " ") interactWithNPC();
+  const directions={
+    w:[0,-1],
+    arrowup:[0,-1],
+    s:[0,1],
+    arrowdown:[0,1],
+    a:[-1,0],
+    arrowleft:[-1,0],
+    d:[1,0],
+    arrowright:[1,0]
+  };
+
+  if(directions[key]) {
+    move(...directions[key]);
+  }
 });
 
-document.getElementById("interact-btn").addEventListener("click", () => {
-    interactWithNPC();
-});
+$("interact").addEventListener("click",interact);
 
 /* =========================================
-   GUIDE INTERACTION
+   NPC AND ARTIFACT INTERACTION
 ========================================= */
 
-function isNearNPC() {
-    const distance =
-        Math.abs(player.x - npc.x) +
-        Math.abs(player.y - npc.y);
-
-    return distance <= 1;
-}
-
-function interactWithNPC() {
-    if (!gameActive) return;
-
-    if (!dialogueBox.classList.contains("hidden")) return;
-    if (!document.getElementById("quiz-box").classList.contains("hidden")) return;
-    if (!document.getElementById("game-over-box").classList.contains("hidden")) return;
-
-    if (!isNearNPC()) {
-        showDialogue(
-            "HISTORICAL GUIDE",
-            "Come closer, traveler! I have a historical challenge waiting for you. Follow the stone path to find me."
-        );
-        return;
-    }
-
-    if (quizCompleted) {
-        showDialogue(
-            "HISTORICAL GUIDE",
-            "Excellent work! You have already completed this challenge. Keep exploring and discovering the past!"
-        );
-        return;
-    }
-
-    const content = historicalContent[currentWorld];
-
-    showDialogue(content.guideTitle, content.guideMessage);
-
-    document.getElementById("dialogue-close-btn").textContent =
-        "START CHALLENGE →";
-
-    dialogueAction = () => {
-        closeDialogue();
-        startQuiz();
-    };
-}
-
-function showDialogue(title, message) {
-    document.getElementById("dialogue-title").textContent = title;
-    document.getElementById("dialogue-message").textContent = message;
-
-    document.getElementById("dialogue-box").classList.remove("hidden");
-
-    document.getElementById("dialogue-close-btn").textContent =
-        "CONTINUE →";
-
-    dialogueAction = closeDialogue;
-    playSound("dialogue");
-}
-
-function closeDialogue() {
-    document.getElementById("dialogue-box").classList.add("hidden");
-    dialogueAction = null;
-}
-
-document.getElementById("dialogue-close-btn").addEventListener("click", () => {
-    if (typeof dialogueAction !== "function") return;
-
-    const action = dialogueAction;
-    dialogueAction = null;
-    action();
-});
-
-/* =========================================
-   QUIZ
-========================================= */
-
-function startQuiz() {
-    if (!gameActive || quizCompleted) return;
-
-    const content = historicalContent[currentWorld];
-
-    quizAnswered = false;
-
-    document.getElementById("quiz-question").textContent =
-        content.question;
-
-    const feedback = document.getElementById("quiz-feedback");
-    feedback.textContent = "";
-    feedback.className = "";
-
-    document.getElementById("quiz-continue-btn").classList.add("hidden");
-
-    const options = document.getElementById("quiz-options");
-    options.innerHTML = "";
-
-    content.answers.forEach((answer, index) => {
-        const button = document.createElement("button");
-
-        button.className = "quiz-option";
-        button.textContent = answer;
-
-        button.addEventListener("click", () => {
-            answerQuestion(index);
-        });
-
-        options.appendChild(button);
-    });
-
-    document.getElementById("quiz-box").classList.remove("hidden");
-    playSound("click");
-}
-
-function answerQuestion(selectedIndex) {
-    if (quizAnswered) return;
-
-    quizAnswered = true;
-
-    const content = historicalContent[currentWorld];
-    const buttons = document.querySelectorAll(".quiz-option");
-    const feedback = document.getElementById("quiz-feedback");
-
-    buttons.forEach((button, index) => {
-        button.disabled = true;
-
-        if (index === content.correct) {
-            button.classList.add("correct");
-        }
-
-        if (index === selectedIndex && selectedIndex !== content.correct) {
-            button.classList.add("incorrect");
-        }
-    });
-
-    if (selectedIndex === content.correct) {
-        score += 100;
-        quizCompleted = true;
-
-        feedback.textContent = "CORRECT! " + content.explanation;
-        feedback.classList.add("success");
-
-        playSound("correct");
-    } else {
-        lives = Math.max(0, lives - 1);
-
-        feedback.textContent = "NOT QUITE! " + content.explanation;
-        feedback.classList.add("error");
-
-        playSound("wrong");
-    }
-
-    updateHUD();
-    saveProgress();
-
-    document.getElementById("quiz-continue-btn").classList.remove("hidden");
-}
-
-document.getElementById("quiz-continue-btn").addEventListener("click", () => {
-    document.getElementById("quiz-box").classList.add("hidden");
-
-    if (lives <= 0) {
-        finishGame(false);
-    } else if (quizCompleted) {
-        finishGame(true);
-    } else {
-        drawWorld();
-    }
-
-    playSound("click");
-});
-
-/* =========================================
-   RESULTS
-========================================= */
-
-function finishGame(success) {
-    gameActive = false;
-
-    const title = document.getElementById("game-over-title");
-    const message = document.getElementById("game-over-message");
-
-    if (success) {
-        title.textContent = "MISSION COMPLETE!";
-        message.textContent =
-            `Well done, explorer! You completed your historical challenge and earned ${score} XP. Your journey through history continues!`;
-
-        playSound("complete");
-    } else {
-        title.textContent = "MISSION ENDED";
-        message.textContent =
-            "You have used all your lives. Review what you learned and try again!";
-    }
-
-    document.getElementById("game-over-box").classList.remove("hidden");
-    saveProgress();
-}
-
-document.getElementById("play-again-btn").addEventListener("click", () => {
-    score = 0;
-    lives = 3;
-    quizCompleted = false;
-    player = { x: 3, y: 9 };
-
-    playSound("click");
-    startGame();
-});
-
-document.getElementById("game-menu-btn").addEventListener("click", () => {
-    gameActive = false;
-    playSound("click");
-    showScreen("main-menu");
-});
-
-/* =========================================
-   HUD
-========================================= */
-
-function updateHUD() {
-    document.getElementById("score-value").textContent =
-        String(score).padStart(4, "0") + " XP";
-
-    document.getElementById("lives-value").textContent =
-        lives > 0 ? "♥ ".repeat(lives).trim() : "0";
-
-    document.getElementById("mission-value").textContent =
-        quizCompleted ? "1 / 1" : "0 / 1";
-}
-
-/* =========================================
-   SAVE AND LOAD
-========================================= */
-
-function saveProgress() {
-    const progress = {
-        currentWorld,
-        score,
-        lives,
-        quizCompleted,
-        playerX: player.x,
-        playerY: player.y
-    };
-
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-    } catch (error) {
-        console.warn("Progress could not be saved:", error);
-    }
-}
-
-function loadProgress() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-
-    if (!saved) return false;
-
-    try {
-        const data = JSON.parse(saved);
-
-        currentWorld = data.currentWorld === "us" ? "us" : "egypt";
-
-        score = Number.isFinite(Number(data.score))
-            ? Math.max(0, Number(data.score)) : 0;
-
-        lives = Number.isFinite(Number(data.lives))
-            ? Math.max(0, Math.min(3, Number(data.lives))) : 3;
-
-        quizCompleted = Boolean(data.quizCompleted);
-
-        const x = Number(data.playerX);
-        const y = Number(data.playerY);
-
-        player.x = Number.isInteger(x) && x >= 0 && x < COLS ? x : 3;
-        player.y = Number.isInteger(y) && y >= 0 && y < ROWS ? y : 9;
-
-        if (isBlocked(player.x, player.y) ||
-            (player.x === npc.x && player.y === npc.y)) {
-            player = { x: 3, y: 9 };
-        }
-
-        updateHUD();
-        return true;
-    } catch (error) {
-        console.warn("Saved progress could not be loaded:", error);
-        return false;
-    }
-}
-
-/* =========================================
-   RESET PROGRESS
-========================================= */
-
-document.getElementById("reset-progress-btn").addEventListener("click", () => {
-    const confirmed = window.confirm(
-        "Are you sure you want to reset your saved game progress?"
+function interact(){
+  if(
+    !gameActive ||
+    !dialogue.classList.contains("hidden") ||
+    !challenge.classList.contains("hidden") ||
+    !resultOverlay.classList.contains("hidden")
+  ) {
+    return;
+  }
+
+  if(nearArtifact()){
+    collectArtifact();
+    return;
+  }
+
+  if(!nearNPC()){
+    showDialogue(
+      "EXPLORER",
+      "Explore the map! Find the character marked by a golden symbol. You can also search for the glowing artifact.",
+      ()=>{}
     );
 
-    if (!confirmed) return;
+    return;
+  }
 
-    localStorage.removeItem(STORAGE_KEY);
+  const mission=currentMission();
 
-    currentWorld = "egypt";
-    score = 0;
-    lives = 3;
-    quizCompleted = false;
-    player = { x: 3, y: 9 };
+  if(completed[missionKey()]){
+    showDialogue(
+      mission.npc.name,
+      "You have already completed this mission. Explore the world and continue your journey!",
+      ()=>{}
+    );
 
-    updateHUD();
-    playSound("click");
+    return;
+  }
 
-    window.alert("Your game progress has been reset.");
+  showDialogue(
+    mission.npc.name,
+    `${mission.description} Are you ready for the challenge?`,
+    startChallenge
+  );
+}
+
+function showDialogue(title,message,callback){
+  $("dialogue-title").textContent=title;
+  $("dialogue-text").textContent=message;
+  $("dialogue-role").textContent=
+    worlds[world].name+" · HISTORICAL CHARACTER";
+
+  dialogue.classList.remove("hidden");
+  dialogueCallback=callback;
+
+  playSound("dialogue");
+}
+
+function closeOverlays(){
+  dialogue.classList.add("hidden");
+  challenge.classList.add("hidden");
+  resultOverlay.classList.add("hidden");
+  dialogueCallback=null;
+}
+
+$("dialogue-action").addEventListener("click",()=>{
+  const action=dialogueCallback;
+
+  dialogueCallback=null;
+  dialogue.classList.add("hidden");
+
+  if(action) {
+    action();
+  }
 });
 
+function artifactKey(){
+  return `${world}-${activeMission}`;
+}
+
+function missionKey(){
+  return `${world}-${activeMission}`;
+}
+
+function collectArtifact(){
+  const key=artifactKey();
+
+  if(artifacts[key]) return;
+
+  artifacts[key]=true;
+  xp+=50;
+
+  playSound("collect");
+  updateUI();
+  saveGame();
+
+  showDialogue(
+    "ARTIFACT DISCOVERED!",
+    `You found the ${currentMission().artifact.name}! You earned 50 XP. This object represents an important part of the historical world.`,
+    ()=>{}
+  );
+
+  drawGame();
+}
+
+/* =========================================
+   CHALLENGES
+========================================= */
+
+function startChallenge(){
+  const mission=currentMission();
+
+  activeChallenge=mission.questions;
+  challengeIndex=0;
+  challengeCorrect=0;
+
+  showQuestion();
+}
+
+function showQuestion(){
+  if(!activeChallenge) return;
+
+  challengeAnswered=false;
+
+  const q=activeChallenge[challengeIndex];
+
+  $("challenge-type").textContent=
+    `MISSION ${activeMission+1} · QUESTION ${challengeIndex+1}/${activeChallenge.length}`;
+
+  $("challenge-title").textContent=q.q;
+  $("challenge-description").textContent="Choose the best answer.";
+  $("challenge-feedback").textContent="";
+  $("challenge-feedback").className="";
+  $("challenge-next").classList.add("hidden");
+
+  const options=$("challenge-options");
+  options.innerHTML="";
+
+  q.a.forEach((answer,index)=>{
+    const button=document.createElement("button");
+
+    button.className="answer";
+    button.textContent=answer;
+
+    button.addEventListener("click",()=>{
+      answerQuestion(index);
+    });
+
+    options.appendChild(button);
+  });
+
+  challenge.classList.remove("hidden");
+}
+
+function answerQuestion(index){
+  if(challengeAnswered) return;
+
+  challengeAnswered=true;
+
+  const q=activeChallenge[challengeIndex];
+  const buttons=document.querySelectorAll(".answer");
+
+  buttons.forEach((b,i)=>{
+    b.disabled=true;
+
+    if(i===q.c) {
+      b.classList.add("correct");
+    }
+
+    if(i===index&&index!==q.c) {
+      b.classList.add("wrong");
+    }
+  });
+
+  const feedback=$("challenge-feedback");
+
+  if(index===q.c){
+    challengeCorrect++;
+    xp+=30;
+
+    feedback.textContent="CORRECT! +30 XP. "+q.e;
+    feedback.classList.add("good");
+
+    playSound("correct");
+
+  }else{
+    lives=Math.max(0,lives-1);
+
+    feedback.textContent="NOT QUITE. "+q.e;
+    feedback.classList.add("bad");
+
+    playSound("wrong");
+  }
+
+  updateUI();
+  saveGame();
+
+  $("challenge-next").classList.remove("hidden");
+}
+
+$("challenge-next").addEventListener("click",()=>{
+  if(!activeChallenge) return;
+
+  if(lives<=0){
+    activeChallenge=null;
+    challenge.classList.add("hidden");
+
+    showResult(
+      "OUT OF LIVES",
+      "Your adventure is paused. You can restart this world from the world selection screen."
+    );
+
+    return;
+  }
+
+  challengeIndex++;
+
+  if(challengeIndex<activeChallenge.length){
+    showQuestion();
+  }else{
+    finishMission();
+  }
+});
+function finishMission(){
+  const total=activeChallenge.length;
+  const passed=challengeCorrect>=2;
+
+  activeChallenge=null;
+  challenge.classList.add("hidden");
+
+  if(passed){
+    completed[missionKey()]=true;
+    xp+=100;
+
+    playSound("complete");
+
+    if(activeMission===worlds[world].missions.length-1){
+      saveGame();
+      updateUI();
+
+      const bothWorldsDone = ["egypt","america"].every(id =>
+        worlds[id].missions.every((m,i)=>
+          completed[`${id}-${i}`]
+        )
+      );
+
+      const completionTitle = bothWorldsDone
+        ? "HISTORY QUEST COMPLETED!"
+        : "WORLD COMPLETED!";
+
+      const completionText = bothWorldsDone
+        ? `Incredible work! You completed all ten missions across Ancient Egypt and US History. Your final score is ${xp} XP. You can revisit either world from the destination screen.`
+        : `Amazing work! You completed all five missions in ${worlds[world].name}. You earned ${xp} XP. Return to the destination screen to explore the other historical world.`;
+
+      showResult(
+        completionTitle,
+        completionText,
+        ()=>{
+          gameActive=false;
+          closeOverlays();
+
+          showScreen(
+            bothWorldsDone
+              ?"main-menu"
+              :"world-screen"
+          );
+        }
+      );
+
+      return;
+    }
+
+    showResult(
+      "MISSION COMPLETE!",
+      `You answered ${challengeCorrect} out of ${total} questions correctly. You earned 100 bonus XP. The next mission is now unlocked!`,
+      true
+    );
+
+  }else{
+    showResult(
+      "MISSION NOT COMPLETED",
+      `You answered ${challengeCorrect} out of ${total} questions correctly. You need at least two correct answers. Review the information and try again.`
+    );
+  }
+
+  updateUI();
+  saveGame();
+}
+
+function showResult(title,message,unlock=false){
+  $("result-title").textContent=title;
+  $("result-text").textContent=message;
+  $("result-button").textContent="CONTINUE";
+
+  resultOverlay.classList.remove("hidden");
+
+  $("result-button").onclick=()=>{
+    resultOverlay.classList.add("hidden");
+
+    if(typeof unlock==="function"){
+      unlock();
+      saveGame();
+      return;
+    }
+
+    if(unlock){
+      activeMission=Math.min(
+        activeMission+1,
+        worlds[world].missions.length-1
+      );
+
+      player={x:2,y:9};
+      map=createMap();
+    }
+
+    if(lives<=0){
+      gameActive=false;
+      showScreen("world-screen");
+      return;
+    }
+
+    updateUI();
+    drawGame();
+    saveGame();
+  };
+}
+
+/* =========================================
+   USER INTERFACE
+========================================= */
+
+function updateUI(){
+  const missions=worlds[world].missions;
+
+  const finished=missions.filter((m,i)=>
+    completed[`${world}-${i}`]
+  ).length;
+
+  const artifactTotal=missions.filter((m,i)=>
+    artifacts[`${world}-${i}`]
+  ).length;
+
+  $("world-name").textContent=worlds[world].name;
+  $("map-name").textContent=worlds[world].mapName;
+
+  $("lives").textContent=
+    lives>0
+      ?"♥ ".repeat(lives).trim()
+      :"0";
+
+  $("xp").textContent=
+    String(xp).padStart(4,"0")+" XP";
+
+  $("mission-count").textContent=`${finished} / 5`;
+  $("artifact-count").textContent=`${artifactTotal} / 5`;
+
+  const mission=missions[activeMission];
+
+  $("mission-title").textContent=mission.name;
+  $("mission-description").textContent=mission.description;
+
+  $("progress-fill").style.width=`${finished/5*100}%`;
+
+  $("progress-label").textContent=
+    `${Math.round(finished/5*100)}% COMPLETE`;
+
+  $("mission-list").innerHTML="";
+
+  missions.forEach((m,i)=>{
+    const row=document.createElement("div");
+
+    row.className=
+      "mission-entry"+
+      (completed[`${world}-${i}`]?" done":"");
+
+    const status=completed[`${world}-${i}`]
+      ?"✓"
+      :i===activeMission
+        ?"▶"
+        :"🔒";
+
+    row.innerHTML=
+      `<span class="status">${status}</span><span>${m.name}</span>`;
+
+    $("mission-list").appendChild(row);
+  });
+}
+
+/* =========================================
+   SAVE / LOAD
+========================================= */
+
+function saveGame(){
+  const data={
+    world,
+    player,
+    xp,
+    lives,
+    activeMission,
+    completed,
+    artifacts,
+    collected
+  };
+
+  try{
+    localStorage.setItem(
+      SAVE_KEY,
+      JSON.stringify(data)
+    );
+
+  }catch(e){
+    console.warn("Could not save progress",e);
+  }
+}
+
+function loadGame(){
+  const raw=localStorage.getItem(SAVE_KEY);
+
+  if(!raw) return false;
+
+  try{
+    const data=JSON.parse(raw);
+
+    world=data.world==="america"
+      ?"america"
+      :"egypt";
+
+    xp=Math.max(0,Number(data.xp)||0);
+
+    lives=Math.max(
+      0,
+      Math.min(5,Number(data.lives)||0)
+    );
+
+    activeMission=Math.max(
+      0,
+      Math.min(4,Number(data.activeMission)||0)
+    );
+
+    completed=data.completed||{};
+    artifacts=data.artifacts||{};
+    collected=data.collected||{};
+
+    const x=Number(data.player?.x);
+    const y=Number(data.player?.y);
+
+    player={
+      x:Number.isInteger(x)&&x>=0&&x<COLS?x:2,
+      y:Number.isInteger(y)&&y>=0&&y<ROWS?y:9
+    };
+
+    map=createMap();
+
+    if(blocked(player.x,player.y)){
+      player={x:2,y:9};
+    }
+
+    // Move to the first incomplete mission.
+    const next=worlds[world].missions.findIndex((m,i)=>
+      !completed[`${world}-${i}`]
+    );
+
+    activeMission=next===-1?0:next;
+
+    return true;
+
+  }catch(e){
+    console.warn("Saved game could not be loaded",e);
+    return false;
+  }
+}
+
+$("reset-game").addEventListener("click",()=>{
+  if(!confirm("Reset all your History Quest progress?")) {
+    return;
+  }
+
+  localStorage.removeItem(SAVE_KEY);
+
+  world="egypt";
+  player={x:2,y:9};
+  xp=0;
+  lives=5;
+
+  activeMission=0;
+  completed={};
+  artifacts={};
+  collected={};
+
+  updateUI();
+  showScreen("main-menu");
+});
 /* =========================================
    SOUND EFFECTS
 ========================================= */
 
-function playSound(type) {
-    if (!soundEnabled) return;
+function playSound(type){
+  if(!soundEnabled) return;
 
-    try {
-        const AudioContextClass =
-            window.AudioContext || window.webkitAudioContext;
+  try{
+    const Audio=window.AudioContext||window.webkitAudioContext;
 
-        if (!AudioContextClass) return;
+    if(!Audio) return;
 
-        if (!audioContext) {
-            audioContext = new AudioContextClass();
-        }
-
-        if (audioContext.state === "suspended") {
-            audioContext.resume();
-        }
-
-        const sounds = {
-            click: [440, 0.07],
-            move: [260, 0.045],
-            dialogue: [520, 0.12],
-            correct: [740, 0.18],
-            wrong: [180, 0.2],
-            complete: [880, 0.3]
-        };
-
-        const [frequency, duration] = sounds[type] || sounds.click;
-
-        const oscillator = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-
-        oscillator.type = "square";
-        oscillator.frequency.value = frequency;
-
-        gain.gain.setValueAtTime(0.04, audioContext.currentTime);
-        gain.gain.exponentialRampToValueAtTime(
-            0.001,
-            audioContext.currentTime + duration
-        );
-
-        oscillator.connect(gain);
-        gain.connect(audioContext.destination);
-
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + duration);
-    } catch (error) {
-        console.warn("Sound could not be played:", error);
+    if(!audioContext) {
+      audioContext=new Audio();
     }
+
+    if(audioContext.state==="suspended") {
+      audioContext.resume();
+    }
+
+    const notes={
+      click:[440,.06],
+      move:[260,.04],
+      dialogue:[520,.12],
+      correct:[740,.16],
+      wrong:[180,.18],
+      collect:[920,.16],
+      complete:[880,.28]
+    };
+
+    const [frequency,duration]=notes[type]||notes.click;
+
+    const osc=audioContext.createOscillator();
+    const gain=audioContext.createGain();
+
+    osc.type="square";
+    osc.frequency.value=frequency;
+
+    gain.gain.setValueAtTime(
+      .035,
+      audioContext.currentTime
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+      .001,
+      audioContext.currentTime+duration
+    );
+
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+
+    osc.start();
+    osc.stop(audioContext.currentTime+duration);
+
+  }catch(e){
+    console.warn("Audio unavailable",e);
+  }
 }
 
-document.getElementById("sound-toggle").addEventListener("change", event => {
-    soundEnabled = event.target.checked;
+$("sound-toggle").addEventListener("change",e=>{
+  soundEnabled=e.target.checked;
 
-    if (soundEnabled) playSound("click");
+  if(soundEnabled) {
+    playSound("click");
+  }
 });
 
 /* =========================================
    INITIALIZATION
 ========================================= */
 
-drawMenuScene();
-updateHUD();
+drawMenuArt();
+map=createMap();
 showScreen("main-menu");
+updateUI();
